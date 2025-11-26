@@ -1,0 +1,197 @@
+import { scrapeTurfFrArchives } from './scrapers/turfScraper.js';
+import { scrapePmuJsonArchives } from './scrapers/pmuJsonScraper.js';
+
+// Cache mémoire simple avec TTL
+const cache = new Map();
+const CACHE_TTL = 6 * 60 * 60 * 1000; // 6 heures
+
+// Rate limiting simple par IP
+const rateLimitMap = new Map();
+const RATE_LIMIT = 30; // 30 requêtes
+const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
+
+/**
+ * Vérifie le rate limiting
+ */
+function checkRateLimit(ip) {
+  const now = Date.now();
+  const userRequests = rateLimitMap.get(ip) || [];
+
+  // Nettoyer les requêtes anciennes
+  const recentRequests = userRequests.filter((time) => now - time < RATE_LIMIT_WINDOW);
+
+  if (recentRequests.length >= RATE_LIMIT) {
+    return false;
+  }
+
+  recentRequests.push(now);
+  rateLimitMap.set(ip, recentRequests);
+  return true;
+}
+
+/**
+ * Génère une clé de cache
+ */
+function getCacheKey(source, years, months) {
+  const yearsStr = Array.isArray(years) ? years.sort().join(',') : '';
+  const monthsStr = Array.isArray(months) ? months.sort().join(',') : '';
+  return `${source}_${yearsStr}_${monthsStr}`;
+}
+
+/**
+ * Applique les filtres sur les réunions
+ */
+function applyFilters(reunions, filters) {
+  let filtered = [...reunions];
+
+  // Filtre par date
+  if (filters.dateFrom) {
+    filtered = filtered.filter((r) => r.dateISO >= filters.dateFrom);
+  }
+  if (filters.dateTo) {
+    filtered = filtered.filter((r) => r.dateISO <= filters.dateTo);
+  }
+
+  // Filtre par hippodromes
+  if (filters.hippodromes?.length) {
+    filtered = filtered.filter((r) =>
+      filters.hippodromes.some((h) =>
+        r.hippodrome?.toLowerCase().includes(h.toLowerCase())
+      )
+    );
+  }
+
+  // Filtre par numéros de réunion
+  if (filters.reunionNumbers?.length) {
+    filtered = filtered.filter((r) =>
+      filters.reunionNumbers.includes(r.reunionNumber)
+    );
+  }
+
+  // Filtre par pays
+  if (filters.countries?.length) {
+    filtered = filtered.filter((r) => filters.countries.includes(r.countryCode));
+  }
+
+  // Filtre par texte
+  if (filters.textQuery) {
+    const query = filters.textQuery.toLowerCase();
+    filtered = filtered.filter(
+      (r) =>
+        r.hippodrome?.toLowerCase().includes(query) ||
+        r.dateLabel?.toLowerCase().includes(query) ||
+        r.reunionNumber?.toString().includes(query)
+    );
+  }
+
+  return filtered;
+}
+
+/**
+ * Handler API /api/archives
+ */
+export default async function handler(req, res) {
+  // CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  if (req.method !== 'GET') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  try {
+    // Récupérer l'IP pour le rate limiting
+    const ip = req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || 'unknown';
+
+    // Vérifier le rate limiting
+    if (!checkRateLimit(ip)) {
+      return res.status(429).json({ error: 'Too many requests. Please try again later.' });
+    }
+
+    // Parser les query params
+    const {
+      source = 'turf-fr',
+      years: yearsParam,
+      months: monthsParam,
+      dateFrom,
+      dateTo,
+      hippodromes: hippodromesParam,
+      reunionNumbers: reunionNumbersParam,
+      countries: countriesParam,
+      textQuery,
+    } = req.query;
+
+    const years = yearsParam ? yearsParam.split(',').filter(Boolean) : [];
+    const months = monthsParam ? monthsParam.split(',').filter(Boolean) : [];
+    const hippodromes = hippodromesParam ? hippodromesParam.split(',').filter(Boolean) : [];
+    const reunionNumbers = reunionNumbersParam
+      ? reunionNumbersParam.split(',').filter(Boolean)
+      : [];
+    const countries = countriesParam ? countriesParam.split(',').filter(Boolean) : [];
+
+    const filters = {
+      dateFrom,
+      dateTo,
+      hippodromes,
+      reunionNumbers,
+      countries,
+      textQuery,
+    };
+
+    // Vérifier le cache
+    const cacheKey = getCacheKey(source, years, months);
+    const cached = cache.get(cacheKey);
+
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      // Cache hit - appliquer les filtres et retourner
+      const filtered = applyFilters(cached.data, filters);
+      return res.status(200).json(filtered);
+    }
+
+    // Cache miss - scraper les données
+    let reunions = [];
+
+    if (source === 'turf-fr') {
+      if (years.length === 0 || months.length === 0) {
+        return res.status(400).json({
+          error: 'Years and months are required for turf-fr source',
+        });
+      }
+      reunions = await scrapeTurfFrArchives(years, months);
+    } else if (source === 'pmu-json') {
+      if (dateFrom && dateTo) {
+        reunions = await scrapePmuJsonArchives([], [], dateFrom, dateTo);
+      } else if (years.length > 0 && months.length > 0) {
+        reunions = await scrapePmuJsonArchives(years, months);
+      } else {
+        return res.status(400).json({
+          error: 'Either dateFrom/dateTo or years/months are required for pmu-json source',
+        });
+      }
+    } else {
+      return res.status(400).json({ error: 'Invalid source' });
+    }
+
+    // Mettre en cache
+    cache.set(cacheKey, {
+      data: reunions,
+      timestamp: Date.now(),
+    });
+
+    // Appliquer les filtres
+    const filtered = applyFilters(reunions, filters);
+
+    return res.status(200).json(filtered);
+  } catch (error) {
+    console.error('Erreur dans /api/archives:', error);
+    return res.status(500).json({
+      error: error.message || 'Internal server error',
+    });
+  }
+}
+
