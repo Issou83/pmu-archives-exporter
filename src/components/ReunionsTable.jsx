@@ -141,7 +141,10 @@ export function ReunionsTable({ data, loading, error }) {
                 Source {getSortIcon('source')}
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                Lien
+                Rapport d'arrivée
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+Lien
               </th>
             </tr>
           </thead>
@@ -159,6 +162,15 @@ export function ReunionsTable({ data, loading, error }) {
                   <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">
                     {reunion.source}
                   </span>
+                </td>
+                <td className="px-4 py-3 text-sm">
+                  {reunion.arrivalReport ? (
+                    <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs font-mono">
+                      {reunion.arrivalReport}
+                    </span>
+                  ) : (
+                    <span className="text-gray-400 text-xs">Non disponible</span>
+                  )}
                 </td>
                 <td className="px-4 py-3 text-sm">
                   {reunion.url ? (

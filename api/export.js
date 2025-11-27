@@ -58,6 +58,7 @@ async function generateExcel(reunions) {
     { header: 'Hippodrome', key: 'hippodrome', width: 25 },
     { header: 'Réunion', key: 'reunionNumber', width: 10 },
     { header: 'Pays', key: 'countryCode', width: 10 },
+    { header: "Rapport d'arrivée", key: 'arrivalReport', width: 25 },
     { header: 'URL', key: 'url', width: 50 },
     { header: 'Source', key: 'source', width: 15 },
   ];
@@ -80,6 +81,7 @@ async function generateExcel(reunions) {
       hippodrome: reunion.hippodrome || '',
       reunionNumber: reunion.reunionNumber || '',
       countryCode: reunion.countryCode || '',
+      arrivalReport: reunion.arrivalReport || 'Non disponible',
       url: reunion.url || '',
       source: reunion.source || '',
     });

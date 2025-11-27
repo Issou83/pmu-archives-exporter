@@ -529,6 +529,168 @@ async function scrapeMonthPage(year, monthSlug) {
 }
 
 /**
+ * Scrape le rapport d'arrivée depuis une page de réunion
+ */
+async function scrapeArrivalReport(reunionUrl) {
+  if (!reunionUrl) return null;
+
+  try {
+    // Convertir l'URL en URL de rapport d'arrivée si nécessaire
+    // Les URLs peuvent être /partants-programmes/ ou /arrivees-rapports/
+    let arrivalUrl = reunionUrl;
+    
+    // Si l'URL pointe vers partants-programmes, essayer arrivees-rapports
+    if (arrivalUrl.includes('/partants-programmes/')) {
+      arrivalUrl = arrivalUrl.replace('/partants-programmes/', '/courses-pmu/arrivees-rapports/');
+    } else if (!arrivalUrl.includes('/arrivees-rapports/') && !arrivalUrl.includes('/courses-pmu/')) {
+      // Si l'URL ne contient pas déjà arrivees-rapports, essayer de la convertir
+      arrivalUrl = arrivalUrl.replace(/\/courses-pmu\/[^\/]+\//, '/courses-pmu/arrivees-rapports/');
+    }
+
+    console.log(`[Scraper] Scraping rapport d'arrivée: ${arrivalUrl}`);
+
+    const response = await fetch(arrivalUrl, {
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        Accept:
+          'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'fr-FR,fr;q=0.9,en;q=0.8',
+        Referer: 'https://www.turf-fr.com/',
+      },
+    });
+
+    if (!response.ok) {
+      // Si 404, essayer l'URL originale
+      if (response.status === 404 && arrivalUrl !== reunionUrl) {
+        console.log(`[Scraper] 404 sur ${arrivalUrl}, essai avec URL originale`);
+        return await scrapeArrivalReport(reunionUrl);
+      }
+      console.log(`[Scraper] HTTP ${response.status} pour ${arrivalUrl}`);
+      return null;
+    }
+
+    const html = await response.text();
+    const $ = cheerio.load(html);
+
+    // Chercher le rapport d'arrivée dans différents formats possibles
+    let arrivalReport = null;
+
+    // Patterns pour détecter les rapports d'arrivée
+    // Format attendu: "Arrivée 11 - 1 - 8 - 13 - 14" ou "11 - 1 - 8 - 13 - 14"
+    const arrivalPatterns = [
+      // Pattern 1: "Arrivée 11 - 1 - 8 - 13 - 14"
+      /arrivée[ée\s:]*(\d+(?:\s*[-–]\s*\d+){2,})/i,
+      // Pattern 2: "11 - 1 - 8 - 13 - 14" (au moins 3 numéros)
+      /(?:^|\s)(\d+(?:\s*[-–]\s*\d+){2,})(?:\s|$)/,
+      // Pattern 3: Dans un élément avec texte "Arrivée" suivi de numéros
+      /arrivée[ée\s:]*([\d\s\-–]{3,})/i,
+    ];
+
+    // Chercher dans différents sélecteurs spécifiques
+    const selectors = [
+      '[class*="arrivee"]',
+      '[class*="arrival"]',
+      '[class*="resultat"]',
+      '[class*="result"]',
+      '[id*="arrivee"]',
+      '[id*="arrival"]',
+      '[class*="flag"]', // Les drapeaux verts indiquent souvent l'arrivée
+      '.arrivee',
+      '.arrival',
+      '.resultat',
+      '.result',
+    ];
+
+    // Chercher d'abord dans les sélecteurs spécifiques
+    for (const selector of selectors) {
+      const $elements = $(selector);
+      $elements.each((i, elem) => {
+        const $elem = $(elem);
+        const text = $elem.text().trim();
+        
+        // Chercher les patterns dans le texte
+        for (const pattern of arrivalPatterns) {
+          const match = text.match(pattern);
+          if (match) {
+            let candidate = match[1].trim();
+            // Nettoyer et valider
+            candidate = candidate.replace(/\s+/g, ' ').replace(/[-–]/g, '-');
+            // Vérifier que c'est un rapport valide (au moins 3 numéros)
+            const numbers = candidate.split('-').filter(n => n.trim().match(/^\d+$/));
+            if (numbers.length >= 3) {
+              arrivalReport = numbers.join('-');
+              return false; // Break de la boucle each
+            }
+          }
+        }
+      });
+      if (arrivalReport) break;
+    }
+
+    // Si pas trouvé, chercher dans les éléments avec texte contenant "Arrivée"
+    if (!arrivalReport) {
+      $('*').each((i, elem) => {
+        const $elem = $(elem);
+        const text = $elem.text();
+        if (text.toLowerCase().includes('arrivée') || text.toLowerCase().includes('arrivee')) {
+          for (const pattern of arrivalPatterns) {
+            const match = text.match(pattern);
+            if (match) {
+              let candidate = match[1].trim();
+              candidate = candidate.replace(/\s+/g, ' ').replace(/[-–]/g, '-');
+              const numbers = candidate.split('-').filter(n => n.trim().match(/^\d+$/));
+              if (numbers.length >= 3) {
+                arrivalReport = numbers.join('-');
+                return false; // Break
+              }
+            }
+          }
+        }
+      });
+    }
+
+    // Dernière tentative : chercher dans tout le body pour des séquences de numéros
+    if (!arrivalReport) {
+      const pageText = $('body').text();
+      // Chercher des séquences comme "11 - 1 - 8 - 13 - 14" près du mot "Arrivée"
+      const contextMatch = pageText.match(/arrivée[ée\s:]*([^\n]{0,100})/i);
+      if (contextMatch) {
+        const context = contextMatch[1];
+        const numbersMatch = context.match(/(\d+(?:\s*[-–]\s*\d+){2,})/);
+        if (numbersMatch) {
+          let candidate = numbersMatch[1].trim();
+          candidate = candidate.replace(/\s+/g, ' ').replace(/[-–]/g, '-');
+          const numbers = candidate.split('-').filter(n => n.trim().match(/^\d+$/));
+          if (numbers.length >= 3) {
+            arrivalReport = numbers.join('-');
+          }
+        }
+      }
+    }
+
+    // Nettoyer le format : "11 - 1 - 8 - 13 - 14" -> "11-1-8-13-14"
+    if (arrivalReport) {
+      arrivalReport = arrivalReport.replace(/\s*[-–]\s*/g, '-');
+    }
+
+    if (arrivalReport) {
+      console.log(`[Scraper] Rapport d'arrivée trouvé: ${arrivalReport}`);
+    } else {
+      console.log(`[Scraper] Aucun rapport d'arrivée trouvé pour ${arrivalUrl}`);
+    }
+
+    return arrivalReport || null;
+  } catch (error) {
+    console.error(
+      `[Scraper] Erreur lors du scraping du rapport d'arrivée pour ${reunionUrl}:`,
+      error.message
+    );
+    return null;
+  }
+}
+
+/**
  * Scrape les archives Turf-FR pour les années et mois spécifiés
  */
 export async function scrapeTurfFrArchives(years, months) {
@@ -576,5 +738,26 @@ export async function scrapeTurfFrArchives(years, months) {
   console.log(
     `[Scraper] Total après déduplication: ${uniqueReunions.length} réunions`
   );
+
+  // Scraper les rapports d'arrivée pour chaque réunion
+  console.log(`[Scraper] Début scraping des rapports d'arrivée...`);
+  for (let i = 0; i < uniqueReunions.length; i++) {
+    const reunion = uniqueReunions[i];
+    const arrivalReport = await scrapeArrivalReport(reunion.url);
+    reunion.arrivalReport = arrivalReport;
+    
+    // Sleep 200ms entre chaque requête pour éviter le scraping agressif
+    if (i < uniqueReunions.length - 1) {
+      await sleep(200);
+    }
+    
+    // Afficher la progression tous les 10 éléments
+    if ((i + 1) % 10 === 0) {
+      console.log(`[Scraper] Rapports d'arrivée: ${i + 1}/${uniqueReunions.length}`);
+    }
+  }
+  
+  console.log(`[Scraper] Scraping des rapports d'arrivée terminé`);
+
   return uniqueReunions;
 }
