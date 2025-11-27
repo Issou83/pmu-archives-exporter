@@ -198,7 +198,10 @@ export default async function handler(req, res) {
       }
       console.log(`[API] Début scraping Turf-FR...`);
       try {
-        reunions = await scrapeTurfFrArchives(years, months);
+        // Scraper avec les rapports d'arrivée (peut prendre du temps)
+        // Pour les grandes requêtes, on pourrait désactiver les rapports d'arrivée
+        const includeArrivalReports = true; // Toujours inclure les rapports d'arrivée
+        reunions = await scrapeTurfFrArchives(years, months, includeArrivalReports);
         console.log(
           `[API] Scraping terminé: ${reunions.length} réunions trouvées`
         );

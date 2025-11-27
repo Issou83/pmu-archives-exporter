@@ -719,8 +719,11 @@ async function scrapeArrivalReport(reunionUrl) {
 
 /**
  * Scrape les archives Turf-FR pour les années et mois spécifiés
+ * @param {string[]} years - Années à scraper
+ * @param {string[]} months - Mois à scraper
+ * @param {boolean} includeArrivalReports - Si true, scrape aussi les rapports d'arrivée (défaut: true)
  */
-export async function scrapeTurfFrArchives(years, months) {
+export async function scrapeTurfFrArchives(years, months, includeArrivalReports = true) {
   console.log(
     `[Scraper] Début scraping Turf-FR: années=${years.join(',')}, mois=${months.join(',')}`
   );
@@ -766,38 +769,41 @@ export async function scrapeTurfFrArchives(years, months) {
     `[Scraper] Total après déduplication: ${uniqueReunions.length} réunions`
   );
 
-  // Scraper les rapports d'arrivée pour chaque réunion en parallèle (par lots de 5)
-  console.log(`[Scraper] Début scraping des rapports d'arrivée...`);
-  const BATCH_SIZE = 5; // Traiter 5 réunions en parallèle
-  
-  for (let i = 0; i < uniqueReunions.length; i += BATCH_SIZE) {
-    const batch = uniqueReunions.slice(i, i + BATCH_SIZE);
+  // Scraper les rapports d'arrivée seulement si demandé
+  if (includeArrivalReports) {
+    console.log(`[Scraper] Début scraping des rapports d'arrivée...`);
+    const BATCH_SIZE = 10; // Traiter 10 réunions en parallèle pour aller plus vite
     
-    // Scraper en parallèle
-    const promises = batch.map(async (reunion) => {
-      try {
-        const arrivalReport = await scrapeArrivalReport(reunion.url);
-        reunion.arrivalReport = arrivalReport;
-      } catch (error) {
-        console.error(`[Scraper] Erreur pour ${reunion.url}:`, error.message);
-        reunion.arrivalReport = null;
+    for (let i = 0; i < uniqueReunions.length; i += BATCH_SIZE) {
+      const batch = uniqueReunions.slice(i, i + BATCH_SIZE);
+      
+      // Scraper en parallèle
+      const promises = batch.map(async (reunion) => {
+        try {
+          const arrivalReport = await scrapeArrivalReport(reunion.url);
+          reunion.arrivalReport = arrivalReport;
+        } catch (error) {
+          reunion.arrivalReport = null;
+        }
+      });
+      
+      await Promise.all(promises);
+      
+      // Sleep 50ms entre les lots pour éviter le scraping agressif
+      if (i + BATCH_SIZE < uniqueReunions.length) {
+        await sleep(50);
       }
-    });
-    
-    await Promise.all(promises);
-    
-    // Sleep 100ms entre les lots pour éviter le scraping agressif
-    if (i + BATCH_SIZE < uniqueReunions.length) {
-      await sleep(100);
+      
+      // Afficher la progression
+      if ((i + BATCH_SIZE) % 20 === 0 || i + BATCH_SIZE >= uniqueReunions.length) {
+        console.log(`[Scraper] Rapports d'arrivée: ${Math.min(i + BATCH_SIZE, uniqueReunions.length)}/${uniqueReunions.length}`);
+      }
     }
     
-    // Afficher la progression
-    if ((i + BATCH_SIZE) % 10 === 0 || i + BATCH_SIZE >= uniqueReunions.length) {
-      console.log(`[Scraper] Rapports d'arrivée: ${Math.min(i + BATCH_SIZE, uniqueReunions.length)}/${uniqueReunions.length}`);
-    }
+    console.log(`[Scraper] Scraping des rapports d'arrivée terminé`);
+  } else {
+    console.log(`[Scraper] Scraping des rapports d'arrivée désactivé`);
   }
-  
-  console.log(`[Scraper] Scraping des rapports d'arrivée terminé`);
 
   return uniqueReunions;
 }
