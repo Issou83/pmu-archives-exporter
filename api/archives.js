@@ -155,26 +155,34 @@ export default async function handler(req, res) {
     }
 
     // Cache miss - scraper les données
+    console.log(`[API] Scraping avec source=${source}, years=${years.join(',')}, months=${months.join(',')}`);
     let reunions = [];
 
     if (source === 'turf-fr') {
       if (years.length === 0 || months.length === 0) {
+        console.log(`[API] Erreur: years ou months manquants`);
         return res.status(400).json({
           error: 'Years and months are required for turf-fr source',
         });
       }
+      console.log(`[API] Début scraping Turf-FR...`);
       reunions = await scrapeTurfFrArchives(years, months);
+      console.log(`[API] Scraping terminé: ${reunions.length} réunions trouvées`);
     } else if (source === 'pmu-json') {
+      console.log(`[API] Début scraping PMU JSON...`);
       if (dateFrom && dateTo) {
         reunions = await scrapePmuJsonArchives([], [], dateFrom, dateTo);
       } else if (years.length > 0 && months.length > 0) {
         reunions = await scrapePmuJsonArchives(years, months);
       } else {
+        console.log(`[API] Erreur: dateFrom/dateTo ou years/months manquants pour PMU JSON`);
         return res.status(400).json({
           error: 'Either dateFrom/dateTo or years/months are required for pmu-json source',
         });
       }
+      console.log(`[API] Scraping PMU JSON terminé: ${reunions.length} réunions trouvées`);
     } else {
+      console.log(`[API] Source invalide: ${source}`);
       return res.status(400).json({ error: 'Invalid source' });
     }
 
