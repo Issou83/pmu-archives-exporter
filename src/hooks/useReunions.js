@@ -56,7 +56,10 @@ export function useReunions(filters) {
       }
       if (currentFilters.textQuery) params.append('textQuery', currentFilters.textQuery);
 
-      const response = await axios.get(`/api/archives?${params.toString()}`);
+      // Timeout de 90 secondes pour permettre le scraping des rapports d'arrivée
+      const response = await axios.get(`/api/archives?${params.toString()}`, {
+        timeout: 90000, // 90 secondes
+      });
       // S'assurer que data est toujours un tableau
       const responseData = response.data;
       setData(Array.isArray(responseData) ? responseData : []);

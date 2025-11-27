@@ -10,11 +10,13 @@ export function ExportBar({ total, filters, onExportSuccess, onExportError }) {
   const handleExport = async () => {
     setExporting(true);
     try {
+      // Timeout de 90 secondes pour permettre le scraping des rapports d'arrivée
       const response = await axios.post(
         '/api/export',
         filters,
         {
           responseType: 'blob',
+          timeout: 90000, // 90 secondes
         }
       );
 
