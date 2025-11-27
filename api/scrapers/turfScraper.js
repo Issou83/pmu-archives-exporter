@@ -123,106 +123,68 @@ async function scrapeMonthPage(year, monthSlug) {
 
     console.log(`[Scraper] HTML reçu, longueur: ${html.length} caractères`);
 
-    // Méthode 1 : Chercher les liens avec "VOIR CETTE REUNION" ou variantes
-    const linkTexts = [
-      'VOIR CETTE REUNION',
-      'Voir cette réunion',
-      'Voir cette reunion',
-      'voir cette réunion',
-      'Voir la réunion',
-      'Voir',
+    // Méthode 1 : Chercher les liens vers les réunions
+    // Patterns détectés : /courses-pmu/arrivees-rapports/r1-... ou /partants-programmes/r1-...
+    const reunionUrlPatterns = [
+      /\/courses-pmu\/(arrivees-rapports|partants|pronostics)\/r\d+/i,
+      /\/partants-programmes\/r\d+/i,
+      /\/courses-pmu\/.*\/r\d+/i,
     ];
+    
+    // Chercher aussi dans les éléments avec classes pertinentes
+    const $reunionContainers = $('.liste_reunions, .archivesCourses, .bloc_archive_liste_mois, [class*="reunion"], [class*="archive"]');
+    
     let foundLinks = 0;
+    const processedUrls = new Set(); // Pour éviter les doublons
 
-    $('a').each((i, elem) => {
+    // Méthode 1a : Chercher dans les conteneurs de réunions
+    $reunionContainers.find('a').each((i, elem) => {
       const $link = $(elem);
       const linkText = $link.text().trim();
       const href = $link.attr('href');
-
-      // Vérifier si le lien contient un texte de réunion ou pointe vers une réunion
-      const hasReunionText = linkTexts.some((text) => linkText.includes(text));
-      const hasReunionHref =
-        href &&
-        (href.includes('reunion') ||
-          href.includes('course') ||
-          href.includes('programme'));
-
-      if ((hasReunionText || hasReunionHref) && href) {
-        foundLinks++;
-        const fullUrl = href.startsWith('http')
-          ? href
-          : `https://www.turf-fr.com${href}`;
-
-        // Chercher les informations dans le contexte proche
-        let dateText = '';
-        let hippodrome = '';
-        let reunionNumber = '';
-
-        // Chercher dans le parent et les frères
-        const $parent = $link.parent();
-        const $container = $parent.closest('div, article, section, li, tr');
-        const containerText = $container.text();
-
-        // Extraire la date (plusieurs formats possibles)
-        const datePatterns = [
-          /(\d{1,2})\s+(janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)\s+(\d{4})/i,
-          /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/,
-          /(\d{1,2})\s+(\w+)\s+(\d{4})/,
-        ];
-
-        for (const pattern of datePatterns) {
-          const match = containerText.match(pattern);
-          if (match) {
-            dateText = match[0];
-            break;
+      
+      if (!href || processedUrls.has(href)) return;
+      
+      // Vérifier si l'URL correspond à un pattern de réunion
+      const isReunionUrl = reunionUrlPatterns.some(pattern => pattern.test(href));
+      
+      // Vérifier si le texte contient un pattern de réunion (R1, R2, etc.)
+      const hasReunionPattern = /R\d+/i.test(linkText) || /réunion\s*\d+/i.test(linkText);
+      
+      if (isReunionUrl || hasReunionPattern) {
+        processedUrls.add(href);
+        
+        // Extraire les infos depuis l'URL ou le texte
+        const urlMatch = href.match(/r(\d+)[\-_]([^\/\-]+)/i);
+        const textMatch = linkText.match(/R(\d+)[\s\-]+(.+)/i) || linkText.match(/(.+)[\s\-]+R(\d+)/i);
+        
+        if (urlMatch || textMatch) {
+          foundLinks++;
+          const reunionNumber = urlMatch ? urlMatch[1] : (textMatch ? (textMatch[1] || textMatch[2]) : '1');
+          const hippodromeFromUrl = urlMatch ? urlMatch[2].replace(/[-_]/g, ' ') : '';
+          const hippodromeFromText = textMatch ? (textMatch[2] || textMatch[1]).trim() : '';
+          const hippodrome = hippodromeFromText || hippodromeFromUrl || 'Inconnu';
+          
+          const fullUrl = href.startsWith('http') ? href : `https://www.turf-fr.com${href}`;
+          
+          // Chercher la date dans le conteneur parent
+          const $container = $link.closest('.liste_reunions, .archivesCourses, .bloc_archive_liste_mois, div, article, section');
+          const containerText = $container.text();
+          
+          let dateText = '';
+          const datePatterns = [
+            /(\d{1,2})\s+(janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)\s+(\d{4})/i,
+            /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/,
+          ];
+          
+          for (const pattern of datePatterns) {
+            const match = containerText.match(pattern);
+            if (match) {
+              dateText = match[0];
+              break;
+            }
           }
-        }
-
-        // Extraire hippodrome et numéro de réunion
-        const reunionPatterns = [
-          /([A-Za-zÀ-ÿ\s\-]+)\s*[-–]\s*R[ée]union\s*(\d+)/i,
-          /([A-Za-zÀ-ÿ\s\-]+)\s*R[ée]union\s*(\d+)/i,
-          /Hippodrome[:\s]+([A-Za-zÀ-ÿ\s\-]+).*R[ée]union[:\s]+(\d+)/i,
-          /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s*[-–]?\s*R[ée]union\s*(\d+)/i,
-        ];
-
-        for (const pattern of reunionPatterns) {
-          const match = containerText.match(pattern);
-          if (match) {
-            hippodrome = match[1].trim();
-            reunionNumber = match[2];
-            break;
-          }
-        }
-
-        // Si on n'a pas trouvé, essayer de chercher dans les éléments proches
-        if (!hippodrome) {
-          // Chercher dans les éléments précédents/suivants
-          const $prev = $link.prev();
-          const $next = $link.next();
-          const nearbyText = $prev.text() + ' ' + $next.text();
-
-          const nearbyMatch = nearbyText.match(
-            /([A-Za-zÀ-ÿ\s\-]+)\s*[-–]?\s*R[ée]union\s*(\d+)/i
-          );
-          if (nearbyMatch) {
-            hippodrome = nearbyMatch[1].trim();
-            reunionNumber = nearbyMatch[2];
-          }
-        }
-
-        // Essayer d'extraire depuis l'URL si elle contient des infos
-        if (!hippodrome && href) {
-          const urlMatch = href.match(/([^\/]+)[\/\-]reunion[\/\-]?(\d+)/i);
-          if (urlMatch) {
-            hippodrome = urlMatch[1].replace(/[-_]/g, ' ');
-            reunionNumber = urlMatch[2];
-          }
-        }
-
-        // Si on a au moins un hippodrome ou un numéro, créer la réunion
-        if (hippodrome || reunionNumber) {
-          // Générer une date par défaut si on n'en a pas trouvé
+          
           let dateInfo = parseDate(dateText);
           if (!dateInfo) {
             // Utiliser le premier jour du mois comme fallback
@@ -237,15 +199,11 @@ async function scrapeMonthPage(year, monthSlug) {
               };
             }
           }
-
+          
           if (dateInfo) {
             const countryCode = normalizeCountryCode(hippodrome);
-            const id = generateId(
-              dateInfo.dateISO,
-              hippodrome || 'unknown',
-              reunionNumber || '1'
-            );
-
+            const id = generateId(dateInfo.dateISO, hippodrome, reunionNumber);
+            
             reunions.push({
               id,
               dateISO: dateInfo.dateISO,
@@ -253,13 +211,127 @@ async function scrapeMonthPage(year, monthSlug) {
               year: dateInfo.year,
               month: dateInfo.month,
               monthLabel: dateInfo.monthLabel,
-              hippodrome: hippodrome || 'Inconnu',
-              reunionNumber: reunionNumber || '1',
+              hippodrome: hippodrome,
+              reunionNumber: reunionNumber,
               countryCode,
               url: fullUrl,
               source: 'turf-fr',
             });
           }
+        }
+      }
+    });
+
+    // Méthode 1b : Chercher tous les liens avec patterns d'URL de réunion
+    $('a').each((i, elem) => {
+      const $link = $(elem);
+      const linkText = $link.text().trim();
+      const href = $link.attr('href');
+
+      if (!href || processedUrls.has(href)) return;
+
+      // Vérifier si l'URL correspond à un pattern de réunion
+      const isReunionUrl = reunionUrlPatterns.some(pattern => pattern.test(href));
+      
+      if (isReunionUrl) {
+        processedUrls.add(href);
+        foundLinks++;
+        
+        // Extraire le numéro de réunion depuis l'URL (format: r1-, r2-, etc.)
+        const urlReunionMatch = href.match(/r(\d+)[\-_]/i);
+        const reunionNumber = urlReunionMatch ? urlReunionMatch[1] : '1';
+        
+        // Extraire l'hippodrome depuis l'URL ou le texte
+        let hippodrome = '';
+        
+        // Pattern 1: r1-vincennes-41258 → "vincennes"
+        const urlHippoMatch = href.match(/r\d+[\-_]([^\/\-]+)/i);
+        if (urlHippoMatch) {
+          const extracted = urlHippoMatch[1];
+          // Ignorer les mots comme "prix", "de", "partants", etc.
+          if (!['prix', 'de', 'partants', 'arrivees', 'rapports', 'pronostics'].includes(extracted.toLowerCase())) {
+            hippodrome = extracted.replace(/[-_]/g, ' ');
+          }
+        }
+        
+        // Pattern 2: Depuis le texte du lien (ex: "R1 - Vincennes")
+        if (!hippodrome && linkText) {
+          const textMatch = linkText.match(/R\d+[\s\-]+(.+)/i) || linkText.match(/(.+)[\s\-]+R\d+/i);
+          if (textMatch) {
+            hippodrome = textMatch[1].trim().split(/[\s\-]/)[0]; // Prendre le premier mot
+          }
+        }
+        
+        // Pattern 3: Depuis le conteneur parent
+        if (!hippodrome) {
+          const $container = $link.closest('.liste_reunions, .archivesCourses, div, article, section');
+          const containerText = $container.text();
+          
+          // Chercher des patterns comme "Vincennes", "Longchamp", etc.
+          const hippodromes = ['Vincennes', 'Longchamp', 'Chantilly', 'Deauville', 'Auteuil', 'Enghien', 'Vincennes'];
+          for (const h of hippodromes) {
+            if (containerText.includes(h)) {
+              hippodrome = h;
+              break;
+            }
+          }
+        }
+        
+        if (!hippodrome) {
+          hippodrome = 'Inconnu';
+        }
+        
+        const fullUrl = href.startsWith('http') ? href : `https://www.turf-fr.com${href}`;
+        
+        // Chercher la date dans le conteneur
+        const $container = $link.closest('.liste_reunions, .archivesCourses, .bloc_archive_liste_mois, div, article, section');
+        const containerText = $container.text();
+        
+        let dateText = '';
+        const datePatterns = [
+          /(\d{1,2})\s+(janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)\s+(\d{4})/i,
+          /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/,
+        ];
+        
+        for (const pattern of datePatterns) {
+          const match = containerText.match(pattern);
+          if (match) {
+            dateText = match[0];
+            break;
+          }
+        }
+        
+        let dateInfo = parseDate(dateText);
+        if (!dateInfo) {
+          const monthIndex = MONTHS.findIndex((m) => m.slug === monthSlug);
+          if (monthIndex !== -1) {
+            dateInfo = {
+              dateISO: `${year}-${String(monthIndex + 1).padStart(2, '0')}-01`,
+              dateLabel: `1 ${MONTHS[monthIndex].label} ${year}`,
+              year: parseInt(year),
+              month: monthIndex + 1,
+              monthLabel: MONTHS[monthIndex].label,
+            };
+          }
+        }
+        
+        if (dateInfo) {
+          const countryCode = normalizeCountryCode(hippodrome);
+          const id = generateId(dateInfo.dateISO, hippodrome, reunionNumber);
+          
+          reunions.push({
+            id,
+            dateISO: dateInfo.dateISO,
+            dateLabel: dateInfo.dateLabel,
+            year: dateInfo.year,
+            month: dateInfo.month,
+            monthLabel: dateInfo.monthLabel,
+            hippodrome: hippodrome,
+            reunionNumber: reunionNumber,
+            countryCode,
+            url: fullUrl,
+            source: 'turf-fr',
+          });
         }
       }
     });

@@ -241,11 +241,24 @@ export default async function handler(req, res) {
     res.setHeader('Content-Type', 'application/json');
     return res.status(200).json(filtered);
   } catch (error) {
-    console.error('Erreur dans /api/archives:', error);
-    console.error('Stack trace:', error.stack);
-    return res.status(500).json({
+    console.error('❌ Erreur dans /api/archives:', error);
+    console.error('📋 Type d\'erreur:', error.constructor.name);
+    console.error('📋 Message:', error.message);
+    console.error('📋 Stack trace:', error.stack);
+    
+    // Retourner une erreur plus détaillée en développement
+    const errorResponse = {
       error: error.message || 'Internal server error',
-      details: process.env.NODE_ENV === 'development' ? error.stack : undefined,
-    });
+      type: error.constructor.name,
+    };
+    
+    // En développement, ajouter plus de détails
+    if (process.env.NODE_ENV === 'development' || process.env.VERCEL_ENV !== 'production') {
+      errorResponse.stack = error.stack;
+      errorResponse.nodeVersion = process.version;
+      errorResponse.hasFetch = typeof fetch !== 'undefined';
+    }
+    
+    return res.status(500).json(errorResponse);
   }
 }
