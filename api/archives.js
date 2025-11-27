@@ -130,7 +130,7 @@ export default async function handler(req, res) {
     const months = monthsParam ? monthsParam.split(',').filter(Boolean) : [];
     const hippodromes = hippodromesParam ? hippodromesParam.split(',').filter(Boolean) : [];
     const reunionNumbers = reunionNumbersParam
-      ? reunionNumbersParam.split(',').filter(Boolean)
+      ? reunionNumbersParam.split(',').filter(Boolean).map(Number)
       : [];
     const countries = countriesParam ? countriesParam.split(',').filter(Boolean) : [];
 
