@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Webapp pour extraire et exporter les archives des réunions PMU",
   "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",

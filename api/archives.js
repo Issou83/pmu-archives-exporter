@@ -18,7 +18,9 @@ function checkRateLimit(ip) {
   const userRequests = rateLimitMap.get(ip) || [];
 
   // Nettoyer les requêtes anciennes
-  const recentRequests = userRequests.filter((time) => now - time < RATE_LIMIT_WINDOW);
+  const recentRequests = userRequests.filter(
+    (time) => now - time < RATE_LIMIT_WINDOW
+  );
 
   if (recentRequests.length >= RATE_LIMIT) {
     return false;
@@ -64,7 +66,10 @@ function applyFilters(reunions, filters) {
   // Filtre par numéros de réunion
   if (filters.reunionNumbers?.length) {
     filtered = filtered.filter((r) => {
-      const reunionNum = typeof r.reunionNumber === 'string' ? parseInt(r.reunionNumber) : r.reunionNumber;
+      const reunionNum =
+        typeof r.reunionNumber === 'string'
+          ? parseInt(r.reunionNumber)
+          : r.reunionNumber;
       return filters.reunionNumbers.some((num) => {
         const filterNum = typeof num === 'string' ? parseInt(num) : num;
         return reunionNum === filterNum;
@@ -74,7 +79,9 @@ function applyFilters(reunions, filters) {
 
   // Filtre par pays
   if (filters.countries?.length) {
-    filtered = filtered.filter((r) => filters.countries.includes(r.countryCode));
+    filtered = filtered.filter((r) =>
+      filters.countries.includes(r.countryCode)
+    );
   }
 
   // Filtre par texte
@@ -110,11 +117,14 @@ export default async function handler(req, res) {
 
   try {
     // Récupérer l'IP pour le rate limiting
-    const ip = req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || 'unknown';
+    const ip =
+      req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || 'unknown';
 
     // Vérifier le rate limiting
     if (!checkRateLimit(ip)) {
-      return res.status(429).json({ error: 'Too many requests. Please try again later.' });
+      return res
+        .status(429)
+        .json({ error: 'Too many requests. Please try again later.' });
     }
 
     // Parser les query params
@@ -132,11 +142,15 @@ export default async function handler(req, res) {
 
     const years = yearsParam ? yearsParam.split(',').filter(Boolean) : [];
     const months = monthsParam ? monthsParam.split(',').filter(Boolean) : [];
-    const hippodromes = hippodromesParam ? hippodromesParam.split(',').filter(Boolean) : [];
+    const hippodromes = hippodromesParam
+      ? hippodromesParam.split(',').filter(Boolean)
+      : [];
     const reunionNumbers = reunionNumbersParam
       ? reunionNumbersParam.split(',').filter(Boolean).map(Number)
       : [];
-    const countries = countriesParam ? countriesParam.split(',').filter(Boolean) : [];
+    const countries = countriesParam
+      ? countriesParam.split(',').filter(Boolean)
+      : [];
 
     const filters = {
       dateFrom,
@@ -159,7 +173,9 @@ export default async function handler(req, res) {
     }
 
     // Cache miss - scraper les données
-    console.log(`[API] Scraping avec source=${source}, years=${years.join(',')}, months=${months.join(',')}`);
+    console.log(
+      `[API] Scraping avec source=${source}, years=${years.join(',')}, months=${months.join(',')}`
+    );
     let reunions = [];
 
     if (source === 'turf-fr') {
@@ -171,7 +187,9 @@ export default async function handler(req, res) {
       }
       console.log(`[API] Début scraping Turf-FR...`);
       reunions = await scrapeTurfFrArchives(years, months);
-      console.log(`[API] Scraping terminé: ${reunions.length} réunions trouvées`);
+      console.log(
+        `[API] Scraping terminé: ${reunions.length} réunions trouvées`
+      );
     } else if (source === 'pmu-json') {
       console.log(`[API] Début scraping PMU JSON...`);
       if (dateFrom && dateTo) {
@@ -179,12 +197,17 @@ export default async function handler(req, res) {
       } else if (years.length > 0 && months.length > 0) {
         reunions = await scrapePmuJsonArchives(years, months);
       } else {
-        console.log(`[API] Erreur: dateFrom/dateTo ou years/months manquants pour PMU JSON`);
+        console.log(
+          `[API] Erreur: dateFrom/dateTo ou years/months manquants pour PMU JSON`
+        );
         return res.status(400).json({
-          error: 'Either dateFrom/dateTo or years/months are required for pmu-json source',
+          error:
+            'Either dateFrom/dateTo or years/months are required for pmu-json source',
         });
       }
-      console.log(`[API] Scraping PMU JSON terminé: ${reunions.length} réunions trouvées`);
+      console.log(
+        `[API] Scraping PMU JSON terminé: ${reunions.length} réunions trouvées`
+      );
     } else {
       console.log(`[API] Source invalide: ${source}`);
       return res.status(400).json({ error: 'Invalid source' });
@@ -208,4 +231,3 @@ export default async function handler(req, res) {
     });
   }
 }
-
