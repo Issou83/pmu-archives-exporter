@@ -38,6 +38,9 @@ function App() {
 
   // Extraire les suggestions d'hippodromes depuis les données
   const suggestions = useMemo(() => {
+    if (!Array.isArray(data)) {
+      return { hippodromes: [] };
+    }
     const hippodromes = [...new Set(data.map((r) => r.hippodrome).filter(Boolean))];
     return { hippodromes };
   }, [data]);
@@ -71,7 +74,7 @@ function App() {
         />
 
         <ExportBar
-          total={data.length}
+          total={Array.isArray(data) ? data.length : 0}
           filters={filters}
           onExportSuccess={(msg) => showToast(msg, 'success')}
           onExportError={(msg) => showToast(msg, 'error')}

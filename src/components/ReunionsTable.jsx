@@ -12,6 +12,7 @@ export function ReunionsTable({ data, loading, error }) {
 
   // Tri des données
   const sortedData = useMemo(() => {
+    if (!Array.isArray(data)) return [];
     if (!sortColumn) return data;
 
     return [...data].sort((a, b) => {
@@ -70,7 +71,7 @@ export function ReunionsTable({ data, loading, error }) {
     );
   }
 
-  if (data.length === 0) {
+  if (!Array.isArray(data) || data.length === 0) {
     return (
       <div className="bg-white p-8 rounded-lg shadow text-center">
         <div className="text-gray-500">Aucune réunion trouvée</div>

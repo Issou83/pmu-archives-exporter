@@ -40,7 +40,9 @@ export function useReunions(filters) {
       if (filters.textQuery) params.append('textQuery', filters.textQuery);
 
       const response = await axios.get(`/api/archives?${params.toString()}`);
-      setData(response.data || []);
+      // S'assurer que data est toujours un tableau
+      const responseData = response.data;
+      setData(Array.isArray(responseData) ? responseData : []);
     } catch (err) {
       setError(err.response?.data?.error || err.message || 'Erreur lors du chargement');
       setData([]);
