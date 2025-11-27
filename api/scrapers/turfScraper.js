@@ -581,73 +581,51 @@ async function scrapeArrivalReport(reunionUrl) {
     // Chercher le rapport d'arrivée dans différents formats possibles
     let arrivalReport = null;
 
-    // Patterns pour détecter les rapports d'arrivée
-    // Format attendu: "Arrivée 11 - 1 - 8 - 13 - 14" ou "11 - 1 - 8 - 13 - 14"
-    const arrivalPatterns = [
-      // Pattern 1: "Arrivée 11 - 1 - 8 - 13 - 14"
-      /arrivée[ée\s:]*(\d+(?:\s*[-–]\s*\d+){2,})/i,
-      // Pattern 2: "11 - 1 - 8 - 13 - 14" (au moins 3 numéros)
-      /(?:^|\s)(\d+(?:\s*[-–]\s*\d+){2,})(?:\s|$)/,
-      // Pattern 3: Dans un élément avec texte "Arrivée" suivi de numéros
-      /arrivée[ée\s:]*([\d\s\-–]{3,})/i,
-    ];
-
-    // Chercher dans différents sélecteurs spécifiques
-    const selectors = [
-      '[class*="arrivee"]',
-      '[class*="arrival"]',
-      '[class*="resultat"]',
-      '[class*="result"]',
-      '[id*="arrivee"]',
-      '[id*="arrival"]',
-      '[class*="flag"]', // Les drapeaux verts indiquent souvent l'arrivée
-      '.arrivee',
-      '.arrival',
-      '.resultat',
-      '.result',
-    ];
-
-    // Chercher d'abord dans les sélecteurs spécifiques
-    for (const selector of selectors) {
-      const $elements = $(selector);
-      $elements.each((i, elem) => {
-        const $elem = $(elem);
-        const text = $elem.text().trim();
-        
-        // Chercher les patterns dans le texte
-        for (const pattern of arrivalPatterns) {
-          const match = text.match(pattern);
-          if (match) {
-            let candidate = match[1].trim();
-            // Nettoyer et valider
-            candidate = candidate.replace(/\s+/g, ' ').replace(/[-–]/g, '-');
-            // Vérifier que c'est un rapport valide (au moins 3 numéros)
-            const numbers = candidate.split('-').filter(n => n.trim().match(/^\d+$/));
-            if (numbers.length >= 3) {
-              arrivalReport = numbers.join('-');
-              return false; // Break de la boucle each
-            }
+    // PRIORITÉ 1 : Chercher dans l'élément spécifique #decompte_depart_course (le plus fiable)
+    const $decompte = $('#decompte_depart_course');
+    if ($decompte.length > 0) {
+      const decompteText = $decompte.text();
+      // Pattern pour "Arrivée \n                    1 - 5 - 11 - 12 - 10" avec espaces multiples
+      const decompteMatch = decompteText.match(/arrivée[ée\s\n]*(\d+(?:\s*[-–]\s*\d+){2,})/i);
+      if (decompteMatch) {
+        let candidate = decompteMatch[1].trim();
+        // Nettoyer : remplacer tous les espaces et tirets par un seul tiret
+        candidate = candidate.replace(/\s+/g, ' ').replace(/[-–]/g, '-').replace(/\s*-\s*/g, '-');
+        const numbers = candidate.split('-').filter(n => n.trim().match(/^\d+$/));
+        if (numbers.length >= 3) {
+          const validNumbers = numbers.filter(n => {
+            const num = parseInt(n);
+            return num >= 1 && num <= 30;
+          });
+          if (validNumbers.length >= 3) {
+            arrivalReport = validNumbers.join('-');
           }
         }
-      });
-      if (arrivalReport) break;
+      }
     }
 
-    // Si pas trouvé, chercher dans les éléments avec texte contenant "Arrivée"
+    // PRIORITÉ 2 : Chercher dans les éléments avec class "title2" (structure similaire)
     if (!arrivalReport) {
-      $('*').each((i, elem) => {
+      const $title2 = $('.title2');
+      $title2.each((i, elem) => {
+        if (arrivalReport) return false;
         const $elem = $(elem);
         const text = $elem.text();
-        if (text.toLowerCase().includes('arrivée') || text.toLowerCase().includes('arrivee')) {
-          for (const pattern of arrivalPatterns) {
-            const match = text.match(pattern);
-            if (match) {
-              let candidate = match[1].trim();
-              candidate = candidate.replace(/\s+/g, ' ').replace(/[-–]/g, '-');
-              const numbers = candidate.split('-').filter(n => n.trim().match(/^\d+$/));
-              if (numbers.length >= 3) {
-                arrivalReport = numbers.join('-');
-                return false; // Break
+        if (text.toLowerCase().includes('arrivée')) {
+          const match = text.match(/arrivée[ée\s\n]*(\d+(?:\s*[-–]\s*\d+){2,})/i);
+          if (match) {
+            let candidate = match[1].trim();
+            // Nettoyer : remplacer tous les espaces autour des tirets et normaliser
+            candidate = candidate.replace(/\s+/g, ' ').replace(/\s*[-–]\s*/g, '-');
+            const numbers = candidate.split('-').filter(n => n.trim().match(/^\d+$/));
+            if (numbers.length >= 3) {
+              const validNumbers = numbers.filter(n => {
+                const num = parseInt(n);
+                return num >= 1 && num <= 30;
+              });
+              if (validNumbers.length >= 3) {
+                arrivalReport = validNumbers.join('-');
+                return false;
               }
             }
           }
@@ -655,47 +633,170 @@ async function scrapeArrivalReport(reunionUrl) {
       });
     }
 
-    // Dernière tentative : chercher dans tout le body pour des séquences de numéros
+    // PRIORITÉ 3 : Chercher dans les éléments aside qui contiennent "Arrivée"
+    if (!arrivalReport) {
+      $('aside').each((i, elem) => {
+        if (arrivalReport) return false;
+        const $elem = $(elem);
+        const text = $elem.text();
+        if (text.toLowerCase().includes('arrivée')) {
+          const match = text.match(/arrivée[ée\s\n]*(\d+(?:\s*[-–]\s*\d+){2,})/i);
+          if (match) {
+            let candidate = match[1].trim();
+            // Nettoyer : remplacer tous les espaces autour des tirets et normaliser
+            candidate = candidate.replace(/\s+/g, ' ').replace(/\s*[-–]\s*/g, '-');
+            const numbers = candidate.split('-').filter(n => n.trim().match(/^\d+$/));
+            if (numbers.length >= 3) {
+              const validNumbers = numbers.filter(n => {
+                const num = parseInt(n);
+                return num >= 1 && num <= 30;
+              });
+              if (validNumbers.length >= 3) {
+                arrivalReport = validNumbers.join('-');
+                return false;
+              }
+            }
+          }
+        }
+      });
+    }
+
+    // Patterns pour détecter les rapports d'arrivée (fallback)
+    // Format attendu: "Arrivée 11 - 1 - 8 - 13 - 14" ou "11 - 1 - 8 - 13 - 14"
+    const arrivalPatterns = [
+      // Pattern 1: "Arrivée 11 - 1 - 8 - 13 - 14" avec espaces multiples et retours à la ligne
+      /arrivée[ée\s\n:]*(\d+(?:\s*[-–]\s*\d+){2,})/i,
+      // Pattern 2: "11 - 1 - 8 - 13 - 14" (au moins 3 numéros)
+      /(?:^|\s)(\d+(?:\s*[-–]\s*\d+){2,})(?:\s|$)/,
+      // Pattern 3: Dans un élément avec texte "Arrivée" suivi de numéros
+      /arrivée[ée\s\n:]*([\d\s\-–]{3,})/i,
+    ];
+
+    // PRIORITÉ 4 : Chercher dans différents sélecteurs spécifiques
+    if (!arrivalReport) {
+      const selectors = [
+        '[class*="arrivee"]',
+        '[class*="arrival"]',
+        '[class*="resultat"]',
+        '[class*="result"]',
+        '[id*="arrivee"]',
+        '[id*="arrival"]',
+        '[class*="flag"]', // Les drapeaux verts indiquent souvent l'arrivée
+        '.arrivee',
+        '.arrival',
+        '.resultat',
+        '.result',
+      ];
+
+      for (const selector of selectors) {
+        if (arrivalReport) break;
+        const $elements = $(selector);
+        $elements.each((i, elem) => {
+          if (arrivalReport) return false;
+          const $elem = $(elem);
+          const text = $elem.text().trim();
+          
+          // Chercher les patterns dans le texte
+          for (const pattern of arrivalPatterns) {
+            const match = text.match(pattern);
+            if (match) {
+              let candidate = match[1].trim();
+              // Nettoyer et valider
+              // Nettoyer : remplacer tous les espaces autour des tirets et normaliser
+              candidate = candidate.replace(/\s+/g, ' ').replace(/\s*[-–]\s*/g, '-');
+              // Vérifier que c'est un rapport valide (au moins 3 numéros)
+              const numbers = candidate.split('-').filter(n => n.trim().match(/^\d+$/));
+              if (numbers.length >= 3) {
+                const validNumbers = numbers.filter(n => {
+                  const num = parseInt(n);
+                  return num >= 1 && num <= 30;
+                });
+                if (validNumbers.length >= 3) {
+                  arrivalReport = validNumbers.join('-');
+                  return false; // Break de la boucle each
+                }
+              }
+            }
+          }
+        });
+      }
+    }
+
+    // PRIORITÉ 5 : Si pas trouvé, chercher dans les éléments avec texte contenant "Arrivée"
+    if (!arrivalReport) {
+      $('*').each((i, elem) => {
+        if (arrivalReport) return false;
+        const $elem = $(elem);
+        const text = $elem.text();
+        if (text.toLowerCase().includes('arrivée') || text.toLowerCase().includes('arrivee')) {
+          for (const pattern of arrivalPatterns) {
+            const match = text.match(pattern);
+            if (match) {
+              let candidate = match[1].trim();
+              candidate = candidate.replace(/\s+/g, ' ').replace(/[-–]/g, '-').replace(/\s*-\s*/g, '-');
+              const numbers = candidate.split('-').filter(n => n.trim().match(/^\d+$/));
+              if (numbers.length >= 3) {
+                const validNumbers = numbers.filter(n => {
+                  const num = parseInt(n);
+                  return num >= 1 && num <= 30;
+                });
+                if (validNumbers.length >= 3) {
+                  arrivalReport = validNumbers.join('-');
+                  return false; // Break
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    // PRIORITÉ 6 : Dernière tentative : chercher dans tout le body pour des séquences de numéros
     if (!arrivalReport) {
       const pageText = $('body').text();
       // Chercher des séquences comme "11 - 1 - 8 - 13 - 14" près du mot "Arrivée"
-      const contextMatch = pageText.match(/arrivée[ée\s:]*([^\n]{0,100})/i);
+      // Améliorer le pattern pour gérer les espaces multiples et retours à la ligne
+      const contextMatch = pageText.match(/arrivée[ée\s\n:]*([^\n]{0,150})/i);
       if (contextMatch) {
         const context = contextMatch[1];
         const numbersMatch = context.match(/(\d+(?:\s*[-–]\s*\d+){2,})/);
         if (numbersMatch) {
           let candidate = numbersMatch[1].trim();
-          candidate = candidate.replace(/\s+/g, ' ').replace(/[-–]/g, '-');
+          candidate = candidate.replace(/\s+/g, ' ').replace(/[-–]/g, '-').replace(/\s*-\s*/g, '-');
           const numbers = candidate.split('-').filter(n => n.trim().match(/^\d+$/));
           if (numbers.length >= 3) {
-            arrivalReport = numbers.join('-');
+            const validNumbers = numbers.filter(n => {
+              const num = parseInt(n);
+              return num >= 1 && num <= 30;
+            });
+            if (validNumbers.length >= 3) {
+              arrivalReport = validNumbers.join('-');
+            }
           }
         }
       }
     }
 
-    // Nettoyer le format : "11 - 1 - 8 - 13 - 14" -> "11-1-8-13-14"
+    // Nettoyer le format final : "11 - 1 - 8 - 13 - 14" -> "11-1-8-13-14"
     if (arrivalReport) {
+      // Le rapport est déjà nettoyé et validé dans les étapes précédentes
+      // Juste s'assurer qu'il est bien formaté
       arrivalReport = arrivalReport.replace(/\s*[-–]\s*/g, '-');
       
-      // Valider le rapport d'arrivée
+      // Validation finale
       const numbers = arrivalReport.split('-').map(n => n.trim()).filter(n => n);
       
-      // Vérifier que tous les numéros sont valides (entre 1 et 30, pas de dates ni montants)
-      const isValid = numbers.every(n => {
+      // Vérifier que tous les numéros sont valides (entre 1 et 30)
+      const validNumbers = numbers.filter(n => {
         const num = parseInt(n);
-        // Exclure les dates (années 1900-2100) et les montants trop grands
-        if (num < 1 || num > 30) return false;
-        // Exclure les formats de date (DD-MM-YYYY ou YYYY)
-        if (n.length === 4 && (num >= 1900 && num <= 2100)) return false;
-        return true;
+        return num >= 1 && num <= 30;
       });
       
       // Vérifier qu'il y a au moins 3 numéros valides
-      if (!isValid || numbers.length < 3) {
+      if (validNumbers.length < 3) {
         arrivalReport = null;
       } else {
-        arrivalReport = numbers.join('-');
+        arrivalReport = validNumbers.join('-');
       }
     }
 
