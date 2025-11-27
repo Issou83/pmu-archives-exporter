@@ -63,9 +63,13 @@ function applyFilters(reunions, filters) {
 
   // Filtre par numéros de réunion
   if (filters.reunionNumbers?.length) {
-    filtered = filtered.filter((r) =>
-      filters.reunionNumbers.includes(r.reunionNumber)
-    );
+    filtered = filtered.filter((r) => {
+      const reunionNum = typeof r.reunionNumber === 'string' ? parseInt(r.reunionNumber) : r.reunionNumber;
+      return filters.reunionNumbers.some((num) => {
+        const filterNum = typeof num === 'string' ? parseInt(num) : num;
+        return reunionNum === filterNum;
+      });
+    });
   }
 
   // Filtre par pays
