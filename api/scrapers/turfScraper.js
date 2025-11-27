@@ -27,11 +27,16 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 function normalizeCountryCode(hippodrome) {
   if (!hippodrome) return 'FR';
   if (hippodrome.startsWith('Gb-') || hippodrome.startsWith('GB-')) return 'GB';
-  if (hippodrome.startsWith('Swe-') || hippodrome.startsWith('SWE-')) return 'SWE';
-  if (hippodrome.startsWith('Usa-') || hippodrome.startsWith('USA-')) return 'USA';
-  if (hippodrome.startsWith('Ire-') || hippodrome.startsWith('IRE-')) return 'IRE';
-  if (hippodrome.startsWith('Ger-') || hippodrome.startsWith('GER-')) return 'GER';
-  if (hippodrome.startsWith('Ita-') || hippodrome.startsWith('ITA-')) return 'ITA';
+  if (hippodrome.startsWith('Swe-') || hippodrome.startsWith('SWE-'))
+    return 'SWE';
+  if (hippodrome.startsWith('Usa-') || hippodrome.startsWith('USA-'))
+    return 'USA';
+  if (hippodrome.startsWith('Ire-') || hippodrome.startsWith('IRE-'))
+    return 'IRE';
+  if (hippodrome.startsWith('Ger-') || hippodrome.startsWith('GER-'))
+    return 'GER';
+  if (hippodrome.startsWith('Ita-') || hippodrome.startsWith('ITA-'))
+    return 'ITA';
   return 'FR';
 }
 
@@ -39,7 +44,10 @@ function normalizeCountryCode(hippodrome) {
  * Génère un ID stable pour une réunion
  */
 function generateId(dateISO, hippodrome, reunionNumber) {
-  return `${dateISO}_${hippodrome}_${reunionNumber}`.replace(/[^a-zA-Z0-9_]/g, '_');
+  return `${dateISO}_${hippodrome}_${reunionNumber}`.replace(
+    /[^a-zA-Z0-9_]/g,
+    '_'
+  );
 }
 
 /**
@@ -49,7 +57,9 @@ function parseDate(dateText) {
   if (!dateText) return null;
 
   // Formats possibles : "15 janvier 2024", "15/01/2024", etc.
-  const dateMatch = dateText.match(/(\d{1,2})[\/\s]+(\w+|\d{1,2})[\/\s]+(\d{4})/);
+  const dateMatch = dateText.match(
+    /(\d{1,2})[\/\s]+(\w+|\d{1,2})[\/\s]+(\d{4})/
+  );
   if (dateMatch) {
     const day = parseInt(dateMatch[1]);
     const monthStr = dateMatch[2];
@@ -57,7 +67,9 @@ function parseDate(dateText) {
 
     // Chercher le mois dans la liste
     const monthIndex = MONTHS.findIndex(
-      (m) => m.label.toLowerCase() === monthStr.toLowerCase() || m.slug === monthStr.toLowerCase()
+      (m) =>
+        m.label.toLowerCase() === monthStr.toLowerCase() ||
+        m.slug === monthStr.toLowerCase()
     );
 
     if (monthIndex !== -1) {
@@ -86,8 +98,10 @@ async function scrapeMonthPage(year, monthSlug) {
   try {
     const response = await fetch(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        Accept:
+          'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
         'Accept-Language': 'fr-FR,fr;q=0.9,en;q=0.8',
         Referer: 'https://www.turf-fr.com/',
       },
@@ -105,7 +119,14 @@ async function scrapeMonthPage(year, monthSlug) {
     console.log(`[Scraper] HTML reçu, longueur: ${html.length} caractères`);
 
     // Méthode 1 : Chercher les liens avec "VOIR CETTE REUNION" ou variantes
-    const linkTexts = ['VOIR CETTE REUNION', 'Voir cette réunion', 'Voir cette reunion', 'voir cette réunion', 'Voir la réunion', 'Voir'];
+    const linkTexts = [
+      'VOIR CETTE REUNION',
+      'Voir cette réunion',
+      'Voir cette reunion',
+      'voir cette réunion',
+      'Voir la réunion',
+      'Voir',
+    ];
     let foundLinks = 0;
 
     $('a').each((i, elem) => {
@@ -115,11 +136,17 @@ async function scrapeMonthPage(year, monthSlug) {
 
       // Vérifier si le lien contient un texte de réunion ou pointe vers une réunion
       const hasReunionText = linkTexts.some((text) => linkText.includes(text));
-      const hasReunionHref = href && (href.includes('reunion') || href.includes('course') || href.includes('programme'));
-      
+      const hasReunionHref =
+        href &&
+        (href.includes('reunion') ||
+          href.includes('course') ||
+          href.includes('programme'));
+
       if ((hasReunionText || hasReunionHref) && href) {
         foundLinks++;
-        const fullUrl = href.startsWith('http') ? href : `https://www.turf-fr.com${href}`;
+        const fullUrl = href.startsWith('http')
+          ? href
+          : `https://www.turf-fr.com${href}`;
 
         // Chercher les informations dans le contexte proche
         let dateText = '';
@@ -169,8 +196,10 @@ async function scrapeMonthPage(year, monthSlug) {
           const $prev = $link.prev();
           const $next = $link.next();
           const nearbyText = $prev.text() + ' ' + $next.text();
-          
-          const nearbyMatch = nearbyText.match(/([A-Za-zÀ-ÿ\s\-]+)\s*[-–]?\s*R[ée]union\s*(\d+)/i);
+
+          const nearbyMatch = nearbyText.match(
+            /([A-Za-zÀ-ÿ\s\-]+)\s*[-–]?\s*R[ée]union\s*(\d+)/i
+          );
           if (nearbyMatch) {
             hippodrome = nearbyMatch[1].trim();
             reunionNumber = nearbyMatch[2];
@@ -206,7 +235,11 @@ async function scrapeMonthPage(year, monthSlug) {
 
           if (dateInfo) {
             const countryCode = normalizeCountryCode(hippodrome);
-            const id = generateId(dateInfo.dateISO, hippodrome || 'unknown', reunionNumber || '1');
+            const id = generateId(
+              dateInfo.dateISO,
+              hippodrome || 'unknown',
+              reunionNumber || '1'
+            );
 
             reunions.push({
               id,
@@ -226,63 +259,82 @@ async function scrapeMonthPage(year, monthSlug) {
       }
     });
 
-    console.log(`[Scraper] Trouvé ${foundLinks} liens, ${reunions.length} réunions extraites`);
+    console.log(
+      `[Scraper] Trouvé ${foundLinks} liens, ${reunions.length} réunions extraites`
+    );
 
     // Méthode 2 : Si aucune réunion trouvée, essayer une approche différente
     if (reunions.length === 0) {
-      console.log(`[Scraper] Aucune réunion trouvée avec la méthode 1, essai méthode alternative...`);
-      
-      // Chercher tous les liens qui pointent vers des réunions
-      $('a[href*="reunion"], a[href*="course"], a[href*="programme"]').each((i, elem) => {
-        const $link = $(elem);
-        const href = $link.attr('href');
-        const linkText = $link.text().trim();
-        
-        if (href && (linkText.length > 0 || href.includes('reunion'))) {
-          // Essayer d'extraire des infos depuis le texte du lien
-          const reunionMatch = linkText.match(/([A-Za-zÀ-ÿ\s\-]+)\s*[-–]?\s*R[ée]union\s*(\d+)/i);
-          if (reunionMatch) {
-            const hippodrome = reunionMatch[1].trim();
-            const reunionNumber = reunionMatch[2];
-            const monthIndex = MONTHS.findIndex((m) => m.slug === monthSlug);
-            
-            if (monthIndex !== -1) {
-              const dateInfo = {
-                dateISO: `${year}-${String(monthIndex + 1).padStart(2, '0')}-01`,
-                dateLabel: `1 ${MONTHS[monthIndex].label} ${year}`,
-                year: parseInt(year),
-                month: monthIndex + 1,
-                monthLabel: MONTHS[monthIndex].label,
-              };
-              
-              const countryCode = normalizeCountryCode(hippodrome);
-              const id = generateId(dateInfo.dateISO, hippodrome, reunionNumber);
-              const fullUrl = href.startsWith('http') ? href : `https://www.turf-fr.com${href}`;
+      console.log(
+        `[Scraper] Aucune réunion trouvée avec la méthode 1, essai méthode alternative...`
+      );
 
-              reunions.push({
-                id,
-                dateISO: dateInfo.dateISO,
-                dateLabel: dateInfo.dateLabel,
-                year: dateInfo.year,
-                month: dateInfo.month,
-                monthLabel: dateInfo.monthLabel,
-                hippodrome,
-                reunionNumber,
-                countryCode,
-                url: fullUrl,
-                source: 'turf-fr',
-              });
+      // Chercher tous les liens qui pointent vers des réunions
+      $('a[href*="reunion"], a[href*="course"], a[href*="programme"]').each(
+        (i, elem) => {
+          const $link = $(elem);
+          const href = $link.attr('href');
+          const linkText = $link.text().trim();
+
+          if (href && (linkText.length > 0 || href.includes('reunion'))) {
+            // Essayer d'extraire des infos depuis le texte du lien
+            const reunionMatch = linkText.match(
+              /([A-Za-zÀ-ÿ\s\-]+)\s*[-–]?\s*R[ée]union\s*(\d+)/i
+            );
+            if (reunionMatch) {
+              const hippodrome = reunionMatch[1].trim();
+              const reunionNumber = reunionMatch[2];
+              const monthIndex = MONTHS.findIndex((m) => m.slug === monthSlug);
+
+              if (monthIndex !== -1) {
+                const dateInfo = {
+                  dateISO: `${year}-${String(monthIndex + 1).padStart(2, '0')}-01`,
+                  dateLabel: `1 ${MONTHS[monthIndex].label} ${year}`,
+                  year: parseInt(year),
+                  month: monthIndex + 1,
+                  monthLabel: MONTHS[monthIndex].label,
+                };
+
+                const countryCode = normalizeCountryCode(hippodrome);
+                const id = generateId(
+                  dateInfo.dateISO,
+                  hippodrome,
+                  reunionNumber
+                );
+                const fullUrl = href.startsWith('http')
+                  ? href
+                  : `https://www.turf-fr.com${href}`;
+
+                reunions.push({
+                  id,
+                  dateISO: dateInfo.dateISO,
+                  dateLabel: dateInfo.dateLabel,
+                  year: dateInfo.year,
+                  month: dateInfo.month,
+                  monthLabel: dateInfo.monthLabel,
+                  hippodrome,
+                  reunionNumber,
+                  countryCode,
+                  url: fullUrl,
+                  source: 'turf-fr',
+                });
+              }
             }
           }
         }
-      });
-      
-      console.log(`[Scraper] Méthode alternative: ${reunions.length} réunions trouvées`);
+      );
+
+      console.log(
+        `[Scraper] Méthode alternative: ${reunions.length} réunions trouvées`
+      );
     }
 
     return reunions;
   } catch (error) {
-    console.error(`[Scraper] Erreur lors du scraping de ${url}:`, error.message);
+    console.error(
+      `[Scraper] Erreur lors du scraping de ${url}:`,
+      error.message
+    );
     console.error(error.stack);
     return [];
   }
@@ -292,7 +344,9 @@ async function scrapeMonthPage(year, monthSlug) {
  * Scrape les archives Turf-FR pour les années et mois spécifiés
  */
 export async function scrapeTurfFrArchives(years, months) {
-  console.log(`[Scraper] Début scraping Turf-FR: années=${years.join(',')}, mois=${months.join(',')}`);
+  console.log(
+    `[Scraper] Début scraping Turf-FR: années=${years.join(',')}, mois=${months.join(',')}`
+  );
   const allReunions = [];
 
   for (const year of years) {
@@ -306,7 +360,9 @@ export async function scrapeTurfFrArchives(years, months) {
       const monthSlug = monthData.slug;
       console.log(`[Scraper] Scraping ${year}/${monthSlug}...`);
       const reunions = await scrapeMonthPage(year, monthSlug);
-      console.log(`[Scraper] ${reunions.length} réunions trouvées pour ${year}/${monthSlug}`);
+      console.log(
+        `[Scraper] ${reunions.length} réunions trouvées pour ${year}/${monthSlug}`
+      );
       allReunions.push(...reunions);
 
       // Sleep 400ms entre les pages pour éviter le scraping agressif
@@ -314,7 +370,9 @@ export async function scrapeTurfFrArchives(years, months) {
     }
   }
 
-  console.log(`[Scraper] Total avant déduplication: ${allReunions.length} réunions`);
+  console.log(
+    `[Scraper] Total avant déduplication: ${allReunions.length} réunions`
+  );
 
   // Dédupliquer par ID
   const uniqueReunions = [];
@@ -327,7 +385,8 @@ export async function scrapeTurfFrArchives(years, months) {
     }
   }
 
-  console.log(`[Scraper] Total après déduplication: ${uniqueReunions.length} réunions`);
+  console.log(
+    `[Scraper] Total après déduplication: ${uniqueReunions.length} réunions`
+  );
   return uniqueReunions;
 }
-

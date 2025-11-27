@@ -11,8 +11,10 @@ console.log(`🔍 Analyse de la structure HTML de: ${url}\n`);
 try {
   const response = await fetch(url, {
     headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+      'User-Agent':
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      Accept:
+        'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
       'Accept-Language': 'fr-FR,fr;q=0.9,en;q=0.8',
     },
   });
@@ -24,7 +26,7 @@ try {
 
   const html = await response.text();
   const $ = cheerio.load(html);
-  
+
   console.log(`✅ HTML reçu: ${html.length} caractères\n`);
 
   // Chercher tous les liens
@@ -41,14 +43,15 @@ try {
   console.log(`📊 Total de liens trouvés: ${allLinks.length}\n`);
 
   // Chercher les liens avec "réunion" ou "reunion"
-  const reunionLinks = allLinks.filter(link => 
-    link.text.toLowerCase().includes('réunion') || 
-    link.text.toLowerCase().includes('reunion') ||
-    link.href.includes('reunion')
+  const reunionLinks = allLinks.filter(
+    (link) =>
+      link.text.toLowerCase().includes('réunion') ||
+      link.text.toLowerCase().includes('reunion') ||
+      link.href.includes('reunion')
   );
 
   console.log(`🔗 Liens contenant "réunion": ${reunionLinks.length}\n`);
-  
+
   if (reunionLinks.length > 0) {
     console.log('📋 Premiers liens de réunion:');
     reunionLinks.slice(0, 10).forEach((link, i) => {
@@ -91,7 +94,10 @@ try {
   const hippodromeElements = [];
   $('*').each((i, elem) => {
     const text = $(elem).text();
-    if (text.toLowerCase().includes('hippodrome') || text.match(/[A-Z][a-z]+\s*[-–]\s*R[ée]union/i)) {
+    if (
+      text.toLowerCase().includes('hippodrome') ||
+      text.match(/[A-Z][a-z]+\s*[-–]\s*R[ée]union/i)
+    ) {
       hippodromeElements.push({
         tag: elem.tagName,
         text: text.substring(0, 150),
@@ -99,7 +105,9 @@ try {
     }
   });
 
-  console.log(`\n🏇 Éléments contenant "hippodrome" ou "Réunion": ${hippodromeElements.length}`);
+  console.log(
+    `\n🏇 Éléments contenant "hippodrome" ou "Réunion": ${hippodromeElements.length}`
+  );
   if (hippodromeElements.length > 0) {
     console.log('\nPremiers éléments:');
     hippodromeElements.slice(0, 5).forEach((item, i) => {
@@ -109,33 +117,41 @@ try {
 
   // Chercher les classes CSS qui pourraient contenir des réunions
   const classesWithReunion = new Set();
-  $('[class*="reunion"], [class*="course"], [class*="archive"], [class*="programme"]').each((i, elem) => {
+  $(
+    '[class*="reunion"], [class*="course"], [class*="archive"], [class*="programme"]'
+  ).each((i, elem) => {
     const classes = $(elem).attr('class');
     if (classes) {
-      classes.split(' ').forEach(cls => {
-        if (cls.toLowerCase().includes('reunion') || 
-            cls.toLowerCase().includes('course') || 
-            cls.toLowerCase().includes('archive')) {
+      classes.split(' ').forEach((cls) => {
+        if (
+          cls.toLowerCase().includes('reunion') ||
+          cls.toLowerCase().includes('course') ||
+          cls.toLowerCase().includes('archive')
+        ) {
           classesWithReunion.add(cls);
         }
       });
     }
   });
 
-  console.log(`\n🎨 Classes CSS pertinentes trouvées: ${classesWithReunion.size}`);
+  console.log(
+    `\n🎨 Classes CSS pertinentes trouvées: ${classesWithReunion.size}`
+  );
   if (classesWithReunion.size > 0) {
     console.log('\nClasses:');
-    Array.from(classesWithReunion).slice(0, 10).forEach(cls => {
-      console.log(`  - ${cls}`);
-    });
+    Array.from(classesWithReunion)
+      .slice(0, 10)
+      .forEach((cls) => {
+        console.log(`  - ${cls}`);
+      });
   }
 
   // Sauvegarder un extrait du HTML pour inspection
   const bodyText = $('body').text().substring(0, 2000);
-  console.log(`\n📄 Extrait du contenu de la page (2000 premiers caractères):\n${bodyText}...`);
-
+  console.log(
+    `\n📄 Extrait du contenu de la page (2000 premiers caractères):\n${bodyText}...`
+  );
 } catch (error) {
   console.error('❌ Erreur:', error.message);
   console.error(error.stack);
 }
-

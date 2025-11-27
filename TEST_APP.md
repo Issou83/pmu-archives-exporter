@@ -32,11 +32,13 @@ Cette regex signifie : "rediriger tout vers `/index.html` SAUF les routes qui co
 1. **Arrêtez le serveur actuel** : Appuyez sur `Ctrl + C` dans le terminal
 
 2. **Relancez le serveur** :
+
 ```powershell
 npx vercel dev
 ```
 
 3. **Attendez que le serveur soit prêt** :
+
 ```
 > Ready! Available at http://localhost:3000
 ```
@@ -63,17 +65,20 @@ Une fois le serveur redémarré :
 ### Vérifier que les API routes sont servies
 
 Testez directement dans le navigateur :
+
 ```
 http://localhost:3000/api/archives?source=turf-fr&years=2024&months=janvier
 ```
 
 Vous devriez voir :
+
 - ✅ Un JSON avec les réunions (peut être vide si aucune réunion n'est trouvée)
 - ❌ Une erreur 500 (regardez les logs du terminal pour l'erreur exacte)
 
 ### Vérifier les logs du terminal
 
 Quand vous faites une recherche, regardez attentivement les logs dans le terminal où `vercel dev` tourne. Vous devriez voir :
+
 - Les messages `[API]` et `[Scraper]`
 - Les erreurs éventuelles avec leur stack trace complète
 
@@ -92,4 +97,3 @@ Mais attention : les appels API ne fonctionneront pas car les Serverless Functio
 - Les changements ont été commités dans Git
 - Le fichier `vercel.json` est maintenant correctement configuré
 - Il faut redémarrer le serveur pour que les changements prennent effet
-

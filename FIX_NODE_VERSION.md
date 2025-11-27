@@ -18,6 +18,7 @@ npm install -g vercel@latest
 ```
 
 Puis relancez :
+
 ```powershell
 npx vercel dev
 ```
@@ -49,6 +50,7 @@ Si vous avez Node.js 20+ installé mais que Vercel CLI utilise une autre version
    - Votre système a `v22.13.1` mais Vercel CLI utilise `v19.8.1`
 
 2. **Mettez à jour Vercel CLI** :
+
    ```powershell
    npm install -g vercel@latest
    ```
@@ -73,17 +75,21 @@ Mais attention : les appels API ne fonctionneront pas.
 Après avoir appliqué une solution, vérifiez :
 
 1. **La version de Node.js utilisée** :
+
    ```powershell
    node --version
    ```
+
    Doit être >= 20.0.0
 
 2. **La version de Vercel CLI** :
+
    ```powershell
    npx vercel --version
    ```
 
 3. **Relancez le serveur** :
+
    ```powershell
    npx vercel dev
    ```
@@ -95,4 +101,3 @@ Après avoir appliqué une solution, vérifiez :
 - L'API `File` est disponible depuis Node.js 20.0.0
 - Vercel CLI devrait automatiquement utiliser la version de Node.js spécifiée dans `engines` ou `.nvmrc`
 - Si le problème persiste, essayez de désinstaller et réinstaller Vercel CLI
-
