@@ -40,14 +40,18 @@ export function FiltersPanel({ filters, onFiltersChange, onSearch, suggestions =
     };
     setLocalFilters(reset);
     onFiltersChange(reset);
+    // Ne pas lancer la recherche automatiquement après reset
   };
 
   const handleSearch = () => {
-    // Appliquer les filtres locaux et lancer la recherche
+    // Appliquer les filtres locaux d'abord
     onFiltersChange(localFilters);
-    if (onSearch) {
-      onSearch();
-    }
+    // Lancer la recherche après un court délai pour s'assurer que les filtres sont mis à jour
+    setTimeout(() => {
+      if (onSearch) {
+        onSearch();
+      }
+    }, 100);
   };
 
   const removeChip = (key, value) => {

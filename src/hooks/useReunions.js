@@ -19,7 +19,18 @@ export function useReunions(filters) {
 
   const fetchReunions = useCallback(async () => {
     if (!currentFilters.source) {
+      setData([]);
+      setLoading(false);
       return;
+    }
+
+    // Vérifier que les filtres minimums sont présents pour turf-fr
+    if (currentFilters.source === 'turf-fr') {
+      if (!currentFilters.years?.length || !currentFilters.months?.length) {
+        setData([]);
+        setLoading(false);
+        return;
+      }
     }
 
     setLoading(true);

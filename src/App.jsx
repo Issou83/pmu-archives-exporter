@@ -30,7 +30,9 @@ function App() {
 
   // Mettre à jour les filtres
   const handleFiltersChange = (newFilters) => {
-    setFilters({ ...newFilters, source });
+    // S'assurer que la source est toujours incluse
+    const updatedFilters = { ...newFilters, source: newFilters.source || source };
+    setFilters(updatedFilters);
   };
 
   // Utiliser le hook pour récupérer les réunions
@@ -38,6 +40,7 @@ function App() {
 
   // Fonction pour lancer la recherche
   const handleSearch = () => {
+    // Utiliser les filtres actuels pour la recherche
     refetch();
   };
 
