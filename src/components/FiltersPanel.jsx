@@ -4,7 +4,7 @@ import { MONTHS, YEARS, COUNTRIES } from '../utils/constants';
 /**
  * Composant pour gérer tous les filtres de recherche
  */
-export function FiltersPanel({ filters, onFiltersChange, suggestions = {} }) {
+export function FiltersPanel({ filters, onFiltersChange, onSearch, suggestions = {} }) {
   const [localFilters, setLocalFilters] = useState(filters);
 
   // Synchroniser avec les props
@@ -15,7 +15,7 @@ export function FiltersPanel({ filters, onFiltersChange, suggestions = {} }) {
   const updateFilter = (key, value) => {
     const newFilters = { ...localFilters, [key]: value };
     setLocalFilters(newFilters);
-    onFiltersChange(newFilters);
+    // Ne pas déclencher la recherche automatiquement, juste mettre à jour les filtres locaux
   };
 
   const toggleArrayFilter = (key, value) => {
@@ -40,6 +40,14 @@ export function FiltersPanel({ filters, onFiltersChange, suggestions = {} }) {
     };
     setLocalFilters(reset);
     onFiltersChange(reset);
+  };
+
+  const handleSearch = () => {
+    // Appliquer les filtres locaux et lancer la recherche
+    onFiltersChange(localFilters);
+    if (onSearch) {
+      onSearch();
+    }
   };
 
   const removeChip = (key, value) => {
@@ -242,9 +250,24 @@ export function FiltersPanel({ filters, onFiltersChange, suggestions = {} }) {
             placeholder="Rechercher dans les réunions..."
             value={localFilters.textQuery || ''}
             onChange={(e) => updateFilter('textQuery', e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                handleSearch();
+              }
+            }}
             className="w-full border rounded px-2 py-1 text-sm"
           />
         </div>
+      </div>
+
+      {/* Bouton Rechercher */}
+      <div className="mt-4 flex justify-end">
+        <button
+          onClick={handleSearch}
+          className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium"
+        >
+          🔍 Rechercher
+        </button>
       </div>
     </div>
   );

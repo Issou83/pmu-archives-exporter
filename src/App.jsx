@@ -34,7 +34,12 @@ function App() {
   };
 
   // Utiliser le hook pour récupérer les réunions
-  const { data, loading, error } = useReunions(filters);
+  const { data, loading, error, refetch } = useReunions(filters);
+
+  // Fonction pour lancer la recherche
+  const handleSearch = () => {
+    refetch();
+  };
 
   // Extraire les suggestions d'hippodromes depuis les données
   const suggestions = useMemo(() => {
@@ -70,6 +75,7 @@ function App() {
         <FiltersPanel
           filters={filters}
           onFiltersChange={handleFiltersChange}
+          onSearch={handleSearch}
           suggestions={suggestions}
         />
 

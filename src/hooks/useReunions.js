@@ -10,9 +10,15 @@ export function useReunions(filters) {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [currentFilters, setCurrentFilters] = useState(filters);
+
+  // Mettre à jour les filtres courants quand ils changent
+  useEffect(() => {
+    setCurrentFilters(filters);
+  }, [filters]);
 
   const fetchReunions = useCallback(async () => {
-    if (!filters.source) {
+    if (!currentFilters.source) {
       return;
     }
 
@@ -23,21 +29,21 @@ export function useReunions(filters) {
       // Construction des query params
       const params = new URLSearchParams();
 
-      if (filters.source) params.append('source', filters.source);
-      if (filters.years?.length) params.append('years', filters.years.join(','));
-      if (filters.months?.length) params.append('months', filters.months.join(','));
-      if (filters.dateFrom) params.append('dateFrom', filters.dateFrom);
-      if (filters.dateTo) params.append('dateTo', filters.dateTo);
-      if (filters.hippodromes?.length) {
-        params.append('hippodromes', filters.hippodromes.join(','));
+      if (currentFilters.source) params.append('source', currentFilters.source);
+      if (currentFilters.years?.length) params.append('years', currentFilters.years.join(','));
+      if (currentFilters.months?.length) params.append('months', currentFilters.months.join(','));
+      if (currentFilters.dateFrom) params.append('dateFrom', currentFilters.dateFrom);
+      if (currentFilters.dateTo) params.append('dateTo', currentFilters.dateTo);
+      if (currentFilters.hippodromes?.length) {
+        params.append('hippodromes', currentFilters.hippodromes.join(','));
       }
-      if (filters.reunionNumbers?.length) {
-        params.append('reunionNumbers', filters.reunionNumbers.join(','));
+      if (currentFilters.reunionNumbers?.length) {
+        params.append('reunionNumbers', currentFilters.reunionNumbers.join(','));
       }
-      if (filters.countries?.length) {
-        params.append('countries', filters.countries.join(','));
+      if (currentFilters.countries?.length) {
+        params.append('countries', currentFilters.countries.join(','));
       }
-      if (filters.textQuery) params.append('textQuery', filters.textQuery);
+      if (currentFilters.textQuery) params.append('textQuery', currentFilters.textQuery);
 
       const response = await axios.get(`/api/archives?${params.toString()}`);
       // S'assurer que data est toujours un tableau
@@ -49,16 +55,17 @@ export function useReunions(filters) {
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, [currentFilters]);
 
-  useEffect(() => {
-    // Debounce de 500ms
-    const timeoutId = setTimeout(() => {
-      fetchReunions();
-    }, 500);
+  // Ne pas lancer automatiquement, seulement via refetch
+  // useEffect(() => {
+  //   // Debounce de 500ms
+  //   const timeoutId = setTimeout(() => {
+  //     fetchReunions();
+  //   }, 500);
 
-    return () => clearTimeout(timeoutId);
-  }, [fetchReunions]);
+  //   return () => clearTimeout(timeoutId);
+  // }, [fetchReunions]);
 
   return {
     data,
