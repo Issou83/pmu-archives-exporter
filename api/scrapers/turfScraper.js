@@ -672,6 +672,26 @@ async function scrapeArrivalReport(reunionUrl) {
     // Nettoyer le format : "11 - 1 - 8 - 13 - 14" -> "11-1-8-13-14"
     if (arrivalReport) {
       arrivalReport = arrivalReport.replace(/\s*[-–]\s*/g, '-');
+      
+      // Valider le rapport d'arrivée
+      const numbers = arrivalReport.split('-').map(n => n.trim()).filter(n => n);
+      
+      // Vérifier que tous les numéros sont valides (entre 1 et 30, pas de dates ni montants)
+      const isValid = numbers.every(n => {
+        const num = parseInt(n);
+        // Exclure les dates (années 1900-2100) et les montants trop grands
+        if (num < 1 || num > 30) return false;
+        // Exclure les formats de date (DD-MM-YYYY ou YYYY)
+        if (n.length === 4 && (num >= 1900 && num <= 2100)) return false;
+        return true;
+      });
+      
+      // Vérifier qu'il y a au moins 3 numéros valides
+      if (!isValid || numbers.length < 3) {
+        arrivalReport = null;
+      } else {
+        arrivalReport = numbers.join('-');
+      }
     }
 
     if (arrivalReport) {
