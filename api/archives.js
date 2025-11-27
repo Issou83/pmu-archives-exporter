@@ -150,6 +150,7 @@ export default async function handler(req, res) {
     if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
       // Cache hit - appliquer les filtres et retourner
       const filtered = applyFilters(cached.data, filters);
+      res.setHeader('Content-Type', 'application/json');
       return res.status(200).json(filtered);
     }
 
@@ -186,6 +187,7 @@ export default async function handler(req, res) {
     // Appliquer les filtres
     const filtered = applyFilters(reunions, filters);
 
+    res.setHeader('Content-Type', 'application/json');
     return res.status(200).json(filtered);
   } catch (error) {
     console.error('Erreur dans /api/archives:', error);

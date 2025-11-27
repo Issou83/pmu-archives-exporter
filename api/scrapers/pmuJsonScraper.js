@@ -36,24 +36,36 @@ function normalizePmuReunion(pmuData, date) {
   // Structure attendue: pmuData contient des réunions avec hippodrome, numéro, etc.
   // Cette fonction doit être adaptée selon la structure réelle de l'API PMU
 
+  // Si pmuData contient libelleCourt/libelleLong, c'est probablement une erreur
+  // ou une structure différente qu'on ne supporte pas encore
+  if (pmuData.libelleCourt || pmuData.libelleLong) {
+    console.warn('Structure PMU non supportée dans normalizePmuReunion:', pmuData);
+    return null;
+  }
+
   const year = date.getFullYear();
   const month = date.getMonth() + 1;
   const day = date.getDate();
 
   const dateISO = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
+  // Extraire les informations depuis différentes structures possibles
+  const hippodrome = pmuData.hippodrome || pmuData.nomHippodrome || pmuData.lieu || 'Inconnu';
+  const reunionNumber = pmuData.reunionNumber || pmuData.numeroReunion || pmuData.numero || '1';
+  const countryCode = pmuData.countryCode || pmuData.pays || 'FR';
+
   // Exemple de normalisation (à adapter selon la structure réelle)
   return {
-    id: `${dateISO}_${pmuData.hippodrome || 'unknown'}_${pmuData.reunionNumber || '1'}`,
+    id: `${dateISO}_${hippodrome}_${reunionNumber}`.replace(/[^a-zA-Z0-9_]/g, '_'),
     dateISO,
     dateLabel: `${day}/${month}/${year}`,
     year,
     month,
     monthLabel: new Date(year, month - 1).toLocaleString('fr-FR', { month: 'long' }),
-    hippodrome: pmuData.hippodrome || 'Inconnu',
-    reunionNumber: pmuData.reunionNumber?.toString() || '1',
-    countryCode: pmuData.countryCode || 'FR',
-    url: pmuData.url || null,
+    hippodrome,
+    reunionNumber: reunionNumber.toString(),
+    countryCode,
+    url: pmuData.url || pmuData.lien || null,
     source: 'pmu-json',
   };
 }
@@ -86,18 +98,34 @@ async function scrapePmuDate(date) {
     const reunions = [];
 
     // Adapter selon la structure réelle de l'API
+    // L'API PMU peut retourner différentes structures
     if (data.programme?.reunions) {
       for (const reunion of data.programme.reunions) {
-        reunions.push(normalizePmuReunion(reunion, date));
+        const normalized = normalizePmuReunion(reunion, date);
+        if (normalized) reunions.push(normalized);
+      }
+    } else if (data.reunions && Array.isArray(data.reunions)) {
+      for (const reunion of data.reunions) {
+        const normalized = normalizePmuReunion(reunion, date);
+        if (normalized) reunions.push(normalized);
       }
     } else if (Array.isArray(data)) {
       for (const item of data) {
-        if (item.reunions) {
+        if (item.reunions && Array.isArray(item.reunions)) {
           for (const reunion of item.reunions) {
-            reunions.push(normalizePmuReunion(reunion, date));
+            const normalized = normalizePmuReunion(reunion, date);
+            if (normalized) reunions.push(normalized);
           }
+        } else if (item.libelleCourt || item.libelleLong) {
+          // Si l'item est directement une réunion avec libelleCourt/libelleLong
+          // C'est probablement une structure différente, on l'ignore pour l'instant
+          console.warn('Structure PMU non supportée:', item);
         }
       }
+    } else if (data.libelleCourt || data.libelleLong) {
+      // Si la réponse entière est un objet avec libelleCourt/libelleLong
+      // C'est probablement une erreur ou une structure différente
+      console.warn('Structure PMU non supportée (objet avec libelleCourt/libelleLong)');
     }
 
     return reunions;
