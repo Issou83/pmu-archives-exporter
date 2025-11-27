@@ -95,6 +95,11 @@ async function scrapeMonthPage(year, monthSlug) {
   const url = `https://www.turf-fr.com/archives/courses-pmu/${year}/${monthSlug}`;
   console.log(`[Scraper] Scraping: ${url}`);
 
+  // Vérifier que fetch est disponible
+  if (typeof fetch === 'undefined') {
+    throw new Error('fetch is not available. Node.js version must be >= 18.0.0');
+  }
+
   try {
     const response = await fetch(url, {
       headers: {

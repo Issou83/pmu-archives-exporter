@@ -176,6 +176,17 @@ export default async function handler(req, res) {
     console.log(
       `[API] Scraping avec source=${source}, years=${years.join(',')}, months=${months.join(',')}`
     );
+    
+    // Vérifier que fetch est disponible
+    if (typeof fetch === 'undefined') {
+      const errorMsg = `fetch is not available. Node.js version: ${process.version}. Required: >= 18.0.0`;
+      console.error(`[API] ${errorMsg}`);
+      return res.status(500).json({
+        error: errorMsg,
+        nodeVersion: process.version,
+      });
+    }
+    
     let reunions = [];
 
     if (source === 'turf-fr') {
@@ -186,10 +197,15 @@ export default async function handler(req, res) {
         });
       }
       console.log(`[API] Début scraping Turf-FR...`);
-      reunions = await scrapeTurfFrArchives(years, months);
-      console.log(
-        `[API] Scraping terminé: ${reunions.length} réunions trouvées`
-      );
+      try {
+        reunions = await scrapeTurfFrArchives(years, months);
+        console.log(
+          `[API] Scraping terminé: ${reunions.length} réunions trouvées`
+        );
+      } catch (scrapeError) {
+        console.error(`[API] Erreur lors du scraping:`, scrapeError);
+        throw scrapeError;
+      }
     } else if (source === 'pmu-json') {
       console.log(`[API] Début scraping PMU JSON...`);
       if (dateFrom && dateTo) {
@@ -226,8 +242,10 @@ export default async function handler(req, res) {
     return res.status(200).json(filtered);
   } catch (error) {
     console.error('Erreur dans /api/archives:', error);
+    console.error('Stack trace:', error.stack);
     return res.status(500).json({
       error: error.message || 'Internal server error',
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined,
     });
   }
 }
