@@ -58,9 +58,14 @@ export function ReunionsTable({ data, loading, error }) {
   if (loading) {
     return (
       <div className="bg-white p-8 rounded-lg shadow text-center">
-        <div className="text-gray-500 mb-2">Chargement en cours...</div>
-        <div className="text-sm text-gray-400">
-          Le scraping des rapports d'arrivée peut prendre 20-30 secondes. Veuillez patienter...
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <div className="text-gray-700 font-medium">Chargement en cours...</div>
+          <div className="text-sm text-gray-500 max-w-md">
+            Le scraping des réunions et des rapports d'arrivée peut prendre 20-30 secondes.
+            <br />
+            <span className="text-xs text-gray-400">Veuillez patienter, ne fermez pas cette page.</span>
+          </div>
         </div>
       </div>
     );
