@@ -244,34 +244,127 @@ async function scrapeMonthPage(year, monthSlug) {
         // Extraire l'hippodrome depuis l'URL ou le texte
         let hippodrome = '';
         
-        // Pattern 1: r1-vincennes-41258 → "vincennes"
-        const urlHippoMatch = href.match(/r\d+[\-_]([^\/\-]+)/i);
+        // Pattern 1: Extraire depuis l'URL
+        // Exemples: 
+        // - r1-vincennes-36237 → "Vincennes"
+        // - r2-cagnes-sur-mer-36234 → "Cagnes Sur Mer"
+        // - r3-ger-gelsenkirchen-36245 → "Ger-Gelsenkirchen"
+        const urlHippoMatch = href.match(/r\d+[\-_]([^\/\-]+(?:-[^\/\-]+){0,2})/i);
         if (urlHippoMatch) {
           const extracted = urlHippoMatch[1];
-          // Ignorer les mots comme "prix", "de", "partants", etc.
-          if (!['prix', 'de', 'partants', 'arrivees', 'rapports', 'pronostics'].includes(extracted.toLowerCase())) {
-            hippodrome = extracted.replace(/[-_]/g, ' ');
+          const ignoredWords = ['prix', 'de', 'la', 'le', 'du', 'des', 'partants', 'arrivees', 'rapports', 'pronostics', 'programmes'];
+          const words = extracted.split(/[-_]/);
+          
+          // Vérifier si c'est un hippodrome connu (pas un prix)
+          const knownHippodromes = {
+            'vincennes': 'Vincennes',
+            'cagnes': 'Cagnes',
+            'cagnes-sur-mer': 'Cagnes Sur Mer',
+            'cagnes-sur': 'Cagnes Sur Mer',
+            'longchamp': 'Longchamp',
+            'chantilly': 'Chantilly',
+            'deauville': 'Deauville',
+            'auteuil': 'Auteuil',
+            'enghien': 'Enghien',
+            'pau': 'Pau',
+            'ger': 'Ger',
+            'ger-gelsenkirchen': 'Ger-Gelsenkirchen',
+            'spa': 'Spa',
+            'spa-son-pardo': 'Spa-Son Pardo',
+            'spa-son': 'Spa-Son Pardo',
+          };
+          
+          const extractedLower = extracted.toLowerCase();
+          
+          // Chercher une correspondance exacte ou partielle (ordre important : plus spécifique d'abord)
+          const sortedKeys = Object.keys(knownHippodromes).sort((a, b) => b.length - a.length);
+          for (const key of sortedKeys) {
+            if (extractedLower === key || 
+                extractedLower.startsWith(key + '-') || 
+                extractedLower.includes('-' + key + '-') ||
+                (key.includes('-') && extractedLower.includes(key))) {
+              hippodrome = knownHippodromes[key];
+              break;
+            }
+          }
+          
+          // Si toujours pas trouvé, vérifier si c'est "cagnes-sur" ou "spa-son"
+          if (!hippodrome) {
+            if (extractedLower.startsWith('cagnes-sur')) {
+              hippodrome = 'Cagnes Sur Mer';
+            } else if (extractedLower.startsWith('spa-son')) {
+              hippodrome = 'Spa-Son Pardo';
+            } else if (extractedLower.startsWith('ger-')) {
+              hippodrome = 'Ger-Gelsenkirchen';
+            }
+          }
+          
+          // Si pas trouvé mais que le premier mot n'est pas ignoré, formater
+          if (!hippodrome && words.length > 0 && !ignoredWords.includes(words[0].toLowerCase())) {
+            const firstWord = words[0].toLowerCase();
+            // Si c'est un hippodrome connu mais pas dans la liste complète
+            if (['vincennes', 'cagnes', 'longchamp', 'chantilly', 'deauville', 'auteuil', 'enghien', 'pau'].includes(firstWord)) {
+              // Capitaliser et prendre jusqu'à 2 mots
+              hippodrome = words.slice(0, 2).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+            } else if (words.length <= 3) {
+              // Si c'est court, c'est peut-être l'hippodrome
+              hippodrome = words.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+            }
           }
         }
         
-        // Pattern 2: Depuis le texte du lien (ex: "R1 - Vincennes")
+        // Pattern 2: Depuis le texte du lien (ex: "R1 - Vincennes" ou "R2 Cagnes Sur Mer")
         if (!hippodrome && linkText) {
-          const textMatch = linkText.match(/R\d+[\s\-]+(.+)/i) || linkText.match(/(.+)[\s\-]+R\d+/i);
+          const textMatch = linkText.match(/R\d+[\s\-]+(.+?)(?:\s*[-–]|$)/i) || linkText.match(/(.+?)[\s\-]+R\d+/i);
           if (textMatch) {
-            hippodrome = textMatch[1].trim().split(/[\s\-]/)[0]; // Prendre le premier mot
+            const extracted = textMatch[1].trim();
+            // Vérifier si c'est un hippodrome (pas un prix)
+            const knownHippodromes = ['Vincennes', 'Cagnes', 'Longchamp', 'Chantilly', 'Deauville', 'Auteuil', 'Enghien', 'Pau'];
+            for (const h of knownHippodromes) {
+              if (extracted.includes(h)) {
+                hippodrome = h;
+                // Si "Cagnes Sur Mer", prendre tout
+                if (extracted.includes('Sur Mer') || extracted.includes('sur mer')) {
+                  hippodrome = 'Cagnes Sur Mer';
+                }
+                break;
+              }
+            }
+            if (!hippodrome && extracted.length < 30) {
+              // Si c'est court et ne contient pas "prix", c'est peut-être l'hippodrome
+              if (!extracted.toLowerCase().includes('prix')) {
+                hippodrome = extracted.split(/[\s\-]/)[0]; // Prendre le premier mot
+              }
+            }
           }
         }
         
-        // Pattern 3: Depuis le conteneur parent
+        // Pattern 3: Depuis le breadcrumb ou le conteneur parent
         if (!hippodrome) {
-          const $container = $link.closest('.liste_reunions, .archivesCourses, div, article, section');
+          const $container = $link.closest('.liste_reunions, .archivesCourses, .bloc_archive_liste_mois, div, article, section');
           const containerText = $container.text();
           
-          // Chercher des patterns comme "Vincennes", "Longchamp", etc.
-          const hippodromes = ['Vincennes', 'Longchamp', 'Chantilly', 'Deauville', 'Auteuil', 'Enghien', 'Vincennes'];
+          // Chercher dans le breadcrumb
+          const breadcrumb = $container.find('[class*="breadcrumb"], nav[aria-label*="breadcrumb"]').text();
+          const searchText = breadcrumb || containerText;
+          
+          // Hippodromes connus avec variations
+          const hippodromes = [
+            { pattern: /cagnes\s+sur\s+mer/i, name: 'Cagnes Sur Mer' },
+            { pattern: /vincennes/i, name: 'Vincennes' },
+            { pattern: /longchamp/i, name: 'Longchamp' },
+            { pattern: /chantilly/i, name: 'Chantilly' },
+            { pattern: /deauville/i, name: 'Deauville' },
+            { pattern: /auteuil/i, name: 'Auteuil' },
+            { pattern: /enghien/i, name: 'Enghien' },
+            { pattern: /pau/i, name: 'Pau' },
+            { pattern: /ger[-\s]?gelsenkirchen/i, name: 'Ger-Gelsenkirchen' },
+            { pattern: /spa[-\s]?son[-\s]?pardo/i, name: 'Spa-Son Pardo' },
+          ];
+          
           for (const h of hippodromes) {
-            if (containerText.includes(h)) {
-              hippodrome = h;
+            if (h.pattern.test(searchText)) {
+              hippodrome = h.name;
               break;
             }
           }
@@ -283,26 +376,37 @@ async function scrapeMonthPage(year, monthSlug) {
         
         const fullUrl = href.startsWith('http') ? href : `https://www.turf-fr.com${href}`;
         
-        // Chercher la date dans le conteneur
+        // Chercher la date dans le conteneur, le breadcrumb, ou le texte proche
         const $container = $link.closest('.liste_reunions, .archivesCourses, .bloc_archive_liste_mois, div, article, section');
-        const containerText = $container.text();
+        let containerText = $container.text();
+        
+        // Chercher aussi dans les éléments parents et frères
+        const $parent = $link.parent();
+        const $siblings = $parent.siblings();
+        const nearbyText = $parent.text() + ' ' + $siblings.text() + ' ' + containerText;
         
         let dateText = '';
         const datePatterns = [
+          /(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\s+(\d{1,2})\s+(janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)\s+(\d{4})/i,
           /(\d{1,2})\s+(janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)\s+(\d{4})/i,
           /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/,
         ];
         
-        for (const pattern of datePatterns) {
-          const match = containerText.match(pattern);
-          if (match) {
-            dateText = match[0];
-            break;
+        // Chercher dans le texte proche d'abord, puis dans le conteneur
+        for (const text of [nearbyText, containerText]) {
+          for (const pattern of datePatterns) {
+            const match = text.match(pattern);
+            if (match) {
+              dateText = match[0];
+              break;
+            }
           }
+          if (dateText) break;
         }
         
         let dateInfo = parseDate(dateText);
         if (!dateInfo) {
+          // Fallback: utiliser le premier jour du mois
           const monthIndex = MONTHS.findIndex((m) => m.slug === monthSlug);
           if (monthIndex !== -1) {
             dateInfo = {
