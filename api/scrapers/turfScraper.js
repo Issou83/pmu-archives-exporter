@@ -547,9 +547,12 @@ async function scrapeArrivalReport(reunionUrl) {
       arrivalUrl = arrivalUrl.replace(/\/courses-pmu\/[^\/]+\//, '/courses-pmu/arrivees-rapports/');
     }
 
-    console.log(`[Scraper] Scraping rapport d'arrivée: ${arrivalUrl}`);
+    // Timeout de 3 secondes par requête pour éviter les blocages
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
 
     const response = await fetch(arrivalUrl, {
+      signal: controller.signal,
       headers: {
         'User-Agent':
           'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -559,6 +562,8 @@ async function scrapeArrivalReport(reunionUrl) {
         Referer: 'https://www.turf-fr.com/',
       },
     });
+    
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       // Si 404, essayer l'URL originale
@@ -702,10 +707,12 @@ async function scrapeArrivalReport(reunionUrl) {
 
     return arrivalReport || null;
   } catch (error) {
-    console.error(
-      `[Scraper] Erreur lors du scraping du rapport d'arrivée pour ${reunionUrl}:`,
-      error.message
-    );
+    // Ignorer les erreurs de timeout ou réseau silencieusement
+    if (error.name === 'AbortError') {
+      console.log(`[Scraper] Timeout pour ${reunionUrl}`);
+    } else {
+      console.log(`[Scraper] Erreur pour ${reunionUrl}: ${error.message}`);
+    }
     return null;
   }
 }
@@ -759,21 +766,34 @@ export async function scrapeTurfFrArchives(years, months) {
     `[Scraper] Total après déduplication: ${uniqueReunions.length} réunions`
   );
 
-  // Scraper les rapports d'arrivée pour chaque réunion
+  // Scraper les rapports d'arrivée pour chaque réunion en parallèle (par lots de 5)
   console.log(`[Scraper] Début scraping des rapports d'arrivée...`);
-  for (let i = 0; i < uniqueReunions.length; i++) {
-    const reunion = uniqueReunions[i];
-    const arrivalReport = await scrapeArrivalReport(reunion.url);
-    reunion.arrivalReport = arrivalReport;
+  const BATCH_SIZE = 5; // Traiter 5 réunions en parallèle
+  
+  for (let i = 0; i < uniqueReunions.length; i += BATCH_SIZE) {
+    const batch = uniqueReunions.slice(i, i + BATCH_SIZE);
     
-    // Sleep 200ms entre chaque requête pour éviter le scraping agressif
-    if (i < uniqueReunions.length - 1) {
-      await sleep(200);
+    // Scraper en parallèle
+    const promises = batch.map(async (reunion) => {
+      try {
+        const arrivalReport = await scrapeArrivalReport(reunion.url);
+        reunion.arrivalReport = arrivalReport;
+      } catch (error) {
+        console.error(`[Scraper] Erreur pour ${reunion.url}:`, error.message);
+        reunion.arrivalReport = null;
+      }
+    });
+    
+    await Promise.all(promises);
+    
+    // Sleep 100ms entre les lots pour éviter le scraping agressif
+    if (i + BATCH_SIZE < uniqueReunions.length) {
+      await sleep(100);
     }
     
-    // Afficher la progression tous les 10 éléments
-    if ((i + 1) % 10 === 0) {
-      console.log(`[Scraper] Rapports d'arrivée: ${i + 1}/${uniqueReunions.length}`);
+    // Afficher la progression
+    if ((i + BATCH_SIZE) % 10 === 0 || i + BATCH_SIZE >= uniqueReunions.length) {
+      console.log(`[Scraper] Rapports d'arrivée: ${Math.min(i + BATCH_SIZE, uniqueReunions.length)}/${uniqueReunions.length}`);
     }
   }
   
