@@ -249,11 +249,20 @@ async function scrapeMonthPage(year, monthSlug) {
         // - r1-vincennes-36237 → "Vincennes"
         // - r2-cagnes-sur-mer-36234 → "Cagnes Sur Mer"
         // - r3-ger-gelsenkirchen-36245 → "Ger-Gelsenkirchen"
-        const urlHippoMatch = href.match(/r\d+[\-_]([^\/\-]+(?:-[^\/\-]+){0,2})/i);
+        // Regex améliorée : capturer jusqu'au numéro final (s'il existe)
+        const urlHippoMatch = href.match(/r\d+[\-_]([^\/\-]+(?:-[^\/\-]+)*?)(?:-\d+)?$/i);
         if (urlHippoMatch) {
-          const extracted = urlHippoMatch[1];
+          let extracted = urlHippoMatch[1];
+          // Nettoyer : enlever les mots de prix à la fin si présents
+          const priceWords = ['prix', 'de', 'la', 'le', 'du', 'des'];
+          let words = extracted.split('-');
+          // Si le dernier mot est un mot de prix, l'enlever
+          while (words.length > 0 && priceWords.includes(words[words.length - 1].toLowerCase())) {
+            words.pop();
+          }
+          extracted = words.join('-');
           const ignoredWords = ['prix', 'de', 'la', 'le', 'du', 'des', 'partants', 'arrivees', 'rapports', 'pronostics', 'programmes'];
-          const words = extracted.split(/[-_]/);
+          words = extracted.split(/[-_]/);
           
           // Vérifier si c'est un hippodrome connu (pas un prix)
           const knownHippodromes = {
@@ -276,26 +285,24 @@ async function scrapeMonthPage(year, monthSlug) {
           
           const extractedLower = extracted.toLowerCase();
           
-          // Chercher une correspondance exacte ou partielle (ordre important : plus spécifique d'abord)
-          const sortedKeys = Object.keys(knownHippodromes).sort((a, b) => b.length - a.length);
-          for (const key of sortedKeys) {
-            if (extractedLower === key || 
-                extractedLower.startsWith(key + '-') || 
-                extractedLower.includes('-' + key + '-') ||
-                (key.includes('-') && extractedLower.includes(key))) {
-              hippodrome = knownHippodromes[key];
-              break;
-            }
-          }
-          
-          // Si toujours pas trouvé, vérifier si c'est "cagnes-sur" ou "spa-son"
-          if (!hippodrome) {
-            if (extractedLower.startsWith('cagnes-sur')) {
-              hippodrome = 'Cagnes Sur Mer';
-            } else if (extractedLower.startsWith('spa-son')) {
-              hippodrome = 'Spa-Son Pardo';
-            } else if (extractedLower.startsWith('ger-')) {
-              hippodrome = 'Ger-Gelsenkirchen';
+          // Vérifier d'abord les cas spéciaux (plus spécifiques)
+          if (extractedLower.startsWith('cagnes-sur')) {
+            hippodrome = 'Cagnes Sur Mer';
+          } else if (extractedLower.startsWith('spa-son')) {
+            hippodrome = 'Spa-Son Pardo';
+          } else if (extractedLower.startsWith('ger-')) {
+            hippodrome = 'Ger-Gelsenkirchen';
+          } else {
+            // Chercher une correspondance exacte ou partielle (ordre important : plus spécifique d'abord)
+            const sortedKeys = Object.keys(knownHippodromes).sort((a, b) => b.length - a.length);
+            for (const key of sortedKeys) {
+              if (extractedLower === key || 
+                  extractedLower.startsWith(key + '-') || 
+                  extractedLower.includes('-' + key + '-') ||
+                  (key.includes('-') && extractedLower.includes(key))) {
+                hippodrome = knownHippodromes[key];
+                break;
+              }
             }
           }
           
