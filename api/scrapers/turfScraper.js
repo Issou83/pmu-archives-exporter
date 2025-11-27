@@ -589,8 +589,8 @@ async function scrapeArrivalReport(reunionUrl) {
       const decompteMatch = decompteText.match(/arrivée[ée\s\n]*(\d+(?:\s*[-–]\s*\d+){2,})/i);
       if (decompteMatch) {
         let candidate = decompteMatch[1].trim();
-        // Nettoyer : remplacer tous les espaces et tirets par un seul tiret
-        candidate = candidate.replace(/\s+/g, ' ').replace(/[-–]/g, '-').replace(/\s*-\s*/g, '-');
+        // Nettoyer : remplacer tous les espaces autour des tirets et normaliser
+        candidate = candidate.replace(/\s*[-–]\s*/g, '-');
         const numbers = candidate.split('-').filter(n => n.trim().match(/^\d+$/));
         if (numbers.length >= 3) {
           const validNumbers = numbers.filter(n => {
@@ -733,7 +733,7 @@ async function scrapeArrivalReport(reunionUrl) {
             const match = text.match(pattern);
             if (match) {
               let candidate = match[1].trim();
-              candidate = candidate.replace(/\s+/g, ' ').replace(/[-–]/g, '-').replace(/\s*-\s*/g, '-');
+              candidate = candidate.replace(/\s*[-–]\s*/g, '-');
               const numbers = candidate.split('-').filter(n => n.trim().match(/^\d+$/));
               if (numbers.length >= 3) {
                 const validNumbers = numbers.filter(n => {
