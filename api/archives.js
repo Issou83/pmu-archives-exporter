@@ -164,12 +164,18 @@ export default async function handler(req, res) {
     // Vérifier le cache
     const cacheKey = getCacheKey(source, years, months);
     const cached = cache.get(cacheKey);
+    const cacheAge = cached ? Date.now() - cached.timestamp : null;
 
-    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    if (cached && cacheAge < CACHE_TTL) {
       // Cache hit - appliquer les filtres et retourner
+      console.log(`[API] Cache hit (âge: ${Math.round(cacheAge / 1000)}s)`);
       const filtered = applyFilters(cached.data, filters);
       res.setHeader('Content-Type', 'application/json');
       return res.status(200).json(filtered);
+    } else if (cached) {
+      console.log(`[API] Cache expiré (âge: ${Math.round(cacheAge / 1000)}s, TTL: ${CACHE_TTL / 1000}s)`);
+    } else {
+      console.log(`[API] Cache miss pour la clé: ${cacheKey}`);
     }
 
     // Cache miss - scraper les données
