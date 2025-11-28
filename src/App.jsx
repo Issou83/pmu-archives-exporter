@@ -4,8 +4,15 @@ import { FiltersPanel } from './components/FiltersPanel';
 import { ReunionsTable } from './components/ReunionsTable';
 import { ExportBar } from './components/ExportBar';
 import { Toast } from './components/Toast';
+import { LegalModal } from './components/LegalModal';
 import { useReunions } from './hooks/useReunions';
 import { SOURCES } from './utils/constants';
+import {
+  DISCLAIMER_CONTENT,
+  CGU_CONTENT,
+  PRIVACY_CONTENT,
+  LEGAL_ANALYSIS_CONTENT,
+} from './data/legalDocuments';
 
 function App() {
   const [source, setSource] = useState(SOURCES.TURF_FR);
@@ -21,6 +28,7 @@ function App() {
     textQuery: '',
   });
   const [toast, setToast] = useState({ message: '', type: 'success' });
+  const [legalModal, setLegalModal] = useState({ isOpen: false, title: '', content: null });
 
   // Mettre à jour la source dans les filtres
   const handleSourceChange = (newSource) => {
@@ -52,6 +60,23 @@ function App() {
 
   const hideToast = () => {
     setToast({ message: '', type: 'success' });
+  };
+
+  const openLegalModal = (type) => {
+    const modals = {
+      disclaimer: { title: '⚠️ Avertissement et Disclaimer', content: DISCLAIMER_CONTENT },
+      cgu: { title: '📜 Conditions Générales d\'Utilisation', content: CGU_CONTENT },
+      privacy: { title: '🔒 Politique de Confidentialité', content: PRIVACY_CONTENT },
+      legal: { title: '⚖️ Analyse Juridique', content: LEGAL_ANALYSIS_CONTENT },
+    };
+    const modal = modals[type];
+    if (modal) {
+      setLegalModal({ isOpen: true, title: modal.title, content: modal.content });
+    }
+  };
+
+  const closeLegalModal = () => {
+    setLegalModal({ isOpen: false, title: '', content: null });
   };
 
   return (
@@ -121,6 +146,14 @@ function App() {
         onClose={hideToast}
       />
 
+      {/* Legal Modal */}
+      <LegalModal
+        isOpen={legalModal.isOpen}
+        onClose={closeLegalModal}
+        title={legalModal.title}
+        content={legalModal.content}
+      />
+
       {/* Footer moderne avec liens légaux */}
       <footer className="mt-16 py-8 bg-gray-50 border-t border-gray-200">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -132,38 +165,30 @@ function App() {
               </p>
             </div>
             <div className="flex flex-wrap gap-4 text-sm">
-              <a
-                href="/LEGAL/DISCLAIMER.md"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-indigo-600 hover:text-indigo-800 underline"
+              <button
+                onClick={() => openLegalModal('disclaimer')}
+                className="text-indigo-600 hover:text-indigo-800 underline cursor-pointer"
               >
                 ⚠️ Avertissement
-              </a>
-              <a
-                href="/LEGAL/CGU.md"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-indigo-600 hover:text-indigo-800 underline"
+              </button>
+              <button
+                onClick={() => openLegalModal('cgu')}
+                className="text-indigo-600 hover:text-indigo-800 underline cursor-pointer"
               >
                 📜 CGU
-              </a>
-              <a
-                href="/LEGAL/POLITIQUE_CONFIDENTIALITE.md"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-indigo-600 hover:text-indigo-800 underline"
+              </button>
+              <button
+                onClick={() => openLegalModal('privacy')}
+                className="text-indigo-600 hover:text-indigo-800 underline cursor-pointer"
               >
                 🔒 Confidentialité
-              </a>
-              <a
-                href="/ANALYSE_JURIDIQUE_COMPLETE.md"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-indigo-600 hover:text-indigo-800 underline"
+              </button>
+              <button
+                onClick={() => openLegalModal('legal')}
+                className="text-indigo-600 hover:text-indigo-800 underline cursor-pointer"
               >
                 ⚖️ Analyse Juridique
-              </a>
+              </button>
             </div>
           </div>
         </div>
