@@ -204,15 +204,30 @@ export default async function handler(req, res) {
       }
       console.log(`[API] Début scraping Turf-FR...`);
       try {
-        // Scraper avec les rapports d'arrivée (peut prendre du temps)
-        // Pour les grandes requêtes, on pourrait désactiver les rapports d'arrivée
-        const includeArrivalReports = true; // Toujours inclure les rapports d'arrivée
+        // Optimisation : désactiver les rapports d'arrivée si trop de mois/années
+        // pour éviter les timeouts (les rapports peuvent être récupérés plus tard)
+        const totalMonths = years.length * months.length;
+        const includeArrivalReports = totalMonths <= 4; // Max 4 combinaisons mois/année
+        
+        if (!includeArrivalReports) {
+          console.log(`[API] Trop de mois/années (${totalMonths}), désactivation des rapports d'arrivée pour éviter timeout`);
+        }
+        
         reunions = await scrapeTurfFrArchives(years, months, includeArrivalReports);
         console.log(
           `[API] Scraping terminé: ${reunions.length} réunions trouvées`
         );
       } catch (scrapeError) {
         console.error(`[API] Erreur lors du scraping:`, scrapeError);
+        // Si c'est un timeout, retourner une erreur plus claire
+        if (scrapeError.message?.includes('timeout') || scrapeError.code === 'ECONNABORTED') {
+          return res.status(504).json({
+            error: {
+              code: '504',
+              message: 'Le scraping prend trop de temps. Essayez de réduire le nombre de mois ou d\'années sélectionnés.',
+            },
+          });
+        }
         throw scrapeError;
       }
     } else if (source === 'pmu-json') {
@@ -255,9 +270,22 @@ export default async function handler(req, res) {
     console.error('📋 Message:', error.message);
     console.error('📋 Stack trace:', error.stack);
     
-    // Retourner une erreur plus détaillée en développement
+    // Gérer les timeouts spécifiquement
+    if (error.message?.includes('timeout') || error.code === 'ECONNABORTED') {
+      return res.status(504).json({
+        error: {
+          code: '504',
+          message: 'Le scraping prend trop de temps. Essayez de réduire le nombre de mois ou d\'années sélectionnés.',
+        },
+      });
+    }
+    
+    // Retourner une erreur plus détaillée
     const errorResponse = {
-      error: error.message || 'Internal server error',
+      error: {
+        code: '500',
+        message: error.message || 'Internal server error',
+      },
       type: error.constructor.name,
     };
     

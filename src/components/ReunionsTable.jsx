@@ -73,8 +73,22 @@ export function ReunionsTable({ data, loading, error }) {
 
   if (error) {
     return (
-      <div className="bg-white p-8 rounded-lg shadow text-center">
-        <div className="text-red-500">Erreur: {error}</div>
+      <div className="bg-white p-8 rounded-lg shadow">
+        <div className="text-center">
+          <div className="text-red-600 text-lg font-semibold mb-2">⚠️ Erreur</div>
+          <div className="text-gray-700 mb-4">{typeof error === 'string' ? error : 'Une erreur est survenue'}</div>
+          {typeof error === 'string' && error.includes('Timeout') && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-left max-w-2xl mx-auto">
+              <div className="text-yellow-800 font-medium mb-2">💡 Suggestions :</div>
+              <ul className="text-yellow-700 text-sm list-disc list-inside space-y-1">
+                <li>Réduisez le nombre de mois sélectionnés (1-2 mois maximum)</li>
+                <li>Limitez le nombre d'années (1 année à la fois)</li>
+                <li>Ajoutez des filtres supplémentaires (hippodrome, pays) pour réduire les résultats</li>
+                <li>Le scraping des rapports d'arrivée peut prendre du temps pour de grandes quantités de données</li>
+              </ul>
+            </div>
+          )}
+        </div>
       </div>
     );
   }

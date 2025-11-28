@@ -64,7 +64,33 @@ export function useReunions(filters) {
       const responseData = response.data;
       setData(Array.isArray(responseData) ? responseData : []);
     } catch (err) {
-      setError(err.response?.data?.error || err.message || 'Erreur lors du chargement');
+      // Gérer les différents types d'erreurs
+      let errorMessage = 'Erreur lors du chargement';
+      
+      if (err.response) {
+        // Erreur HTTP (404, 500, 504, etc.)
+        const errorData = err.response.data;
+        if (errorData?.error) {
+          // Si l'erreur est un objet avec code et message
+          if (typeof errorData.error === 'object' && errorData.error.message) {
+            errorMessage = errorData.error.message;
+          } else if (typeof errorData.error === 'string') {
+            errorMessage = errorData.error;
+          }
+        } else if (err.response.status === 504) {
+          errorMessage = 'Timeout : Le scraping prend trop de temps. Essayez de réduire le nombre de mois ou d\'années sélectionnés.';
+        } else if (err.response.status >= 500) {
+          errorMessage = `Erreur serveur (${err.response.status}). Veuillez réessayer plus tard.`;
+        } else {
+          errorMessage = `Erreur ${err.response.status}`;
+        }
+      } else if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
+        errorMessage = 'Timeout : La requête a pris trop de temps. Essayez de réduire le nombre de mois ou d\'années sélectionnés.';
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
       setData([]);
     } finally {
       setLoading(false);
