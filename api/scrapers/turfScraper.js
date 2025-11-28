@@ -798,12 +798,18 @@ async function scrapeArrivalReportFromUrl(url, robotsRules = null) {
       );
       if (decompteMatch) {
         let candidate = decompteMatch[1].trim();
-        // Nettoyer : remplacer tous les espaces autour des tirets et normaliser
-        // Gérer aussi les cas où il n'y a pas de tirets mais seulement des espaces
-        candidate = candidate.replace(/\s+/g, ' ').replace(/\s*[-–]?\s*/g, '-').replace(/-+/g, '-');
+        // CORRECTION : Extraire les numéros complets sans casser les nombres à plusieurs chiffres
+        // Remplacer les tirets et espaces multiples par un séparateur unique, mais préserver les numéros
+        // Exemple: "11 - 6 - 4" ne doit pas devenir "1-1-6-4"
+        candidate = candidate
+          .replace(/\s+/g, ' ') // Normaliser les espaces multiples
+          .replace(/\s*[-–]\s*/g, '|') // Remplacer les tirets par un séparateur temporaire
+          .replace(/\s+/g, '|') // Remplacer les espaces restants par le séparateur
+          .replace(/\|+/g, '|'); // Normaliser les séparateurs multiples
         const numbers = candidate
-          .split('-')
-          .filter((n) => n.trim().match(/^\d+$/));
+          .split('|')
+          .map(n => n.trim())
+          .filter((n) => n.match(/^\d+$/));
         if (numbers.length >= 3) {
           const validNumbers = numbers.filter((n) => {
             const num = parseInt(n);
@@ -832,13 +838,16 @@ async function scrapeArrivalReportFromUrl(url, robotsRules = null) {
         );
         if (match) {
           let candidate = match[1].trim();
-          // Nettoyer : remplacer tous les espaces autour des tirets
+          // CORRECTION : Extraire les numéros complets sans casser les nombres à plusieurs chiffres
           candidate = candidate
             .replace(/\s+/g, ' ')
-            .replace(/\s*[-–]\s*/g, '-');
+            .replace(/\s*[-–]\s*/g, '|')
+            .replace(/\s+/g, '|')
+            .replace(/\|+/g, '|');
           const numbers = candidate
-            .split('-')
-            .filter((n) => n.trim().match(/^\d+$/));
+            .split('|')
+            .map(n => n.trim())
+            .filter((n) => n.match(/^\d+$/));
           if (numbers.length >= 3) {
             const validNumbers = numbers.filter((n) => {
               const num = parseInt(n);
@@ -870,14 +879,16 @@ async function scrapeArrivalReportFromUrl(url, robotsRules = null) {
           );
           if (numbersMatch) {
             let candidate = numbersMatch[1].trim();
-            // Nettoyer : remplacer tous les espaces et tirets
+            // CORRECTION : Extraire les numéros complets sans casser les nombres à plusieurs chiffres
             candidate = candidate
               .replace(/\s+/g, ' ')
-              .replace(/\s*[-–]?\s*/g, '-')
-              .replace(/-+/g, '-');
+              .replace(/\s*[-–]\s*/g, '|')
+              .replace(/\s+/g, '|')
+              .replace(/\|+/g, '|');
             const numbers = candidate
-              .split('-')
-              .filter((n) => n.trim().match(/^\d+$/));
+              .split('|')
+              .map(n => n.trim())
+              .filter((n) => n.match(/^\d+$/));
             if (numbers.length >= 3) {
               const validNumbers = numbers.filter((n) => {
                 const num = parseInt(n);
@@ -905,13 +916,16 @@ async function scrapeArrivalReportFromUrl(url, robotsRules = null) {
           );
           if (match) {
             let candidate = match[1].trim();
-            // Nettoyer : remplacer tous les espaces autour des tirets et normaliser
+            // CORRECTION : Extraire les numéros complets sans casser les nombres à plusieurs chiffres
             candidate = candidate
               .replace(/\s+/g, ' ')
-              .replace(/\s*[-–]\s*/g, '-');
+              .replace(/\s*[-–]\s*/g, '|')
+              .replace(/\s+/g, '|')
+              .replace(/\|+/g, '|');
             const numbers = candidate
-              .split('-')
-              .filter((n) => n.trim().match(/^\d+$/));
+              .split('|')
+              .map(n => n.trim())
+              .filter((n) => n.match(/^\d+$/));
             if (numbers.length >= 3) {
               const validNumbers = numbers.filter((n) => {
                 const num = parseInt(n);
@@ -967,15 +981,17 @@ async function scrapeArrivalReportFromUrl(url, robotsRules = null) {
             const match = text.match(pattern);
             if (match) {
               let candidate = match[1].trim();
-              // Nettoyer et valider
-              // Nettoyer : remplacer tous les espaces autour des tirets et normaliser
+              // CORRECTION : Extraire les numéros complets sans casser les nombres à plusieurs chiffres
               candidate = candidate
                 .replace(/\s+/g, ' ')
-                .replace(/\s*[-–]\s*/g, '-');
+                .replace(/\s*[-–]\s*/g, '|')
+                .replace(/\s+/g, '|')
+                .replace(/\|+/g, '|');
               // Vérifier que c'est un rapport valide (au moins 3 numéros)
               const numbers = candidate
-                .split('-')
-                .filter((n) => n.trim().match(/^\d+$/));
+                .split('|')
+                .map(n => n.trim())
+                .filter((n) => n.match(/^\d+$/));
               if (numbers.length >= 3) {
                 const validNumbers = numbers.filter((n) => {
                   const num = parseInt(n);
@@ -1006,10 +1022,16 @@ async function scrapeArrivalReportFromUrl(url, robotsRules = null) {
             const match = text.match(pattern);
             if (match) {
               let candidate = match[1].trim();
-              candidate = candidate.replace(/\s*[-–]\s*/g, '-');
+              // CORRECTION : Extraire les numéros complets sans casser les nombres à plusieurs chiffres
+              candidate = candidate
+                .replace(/\s+/g, ' ')
+                .replace(/\s*[-–]\s*/g, '|')
+                .replace(/\s+/g, '|')
+                .replace(/\|+/g, '|');
               const numbers = candidate
-                .split('-')
-                .filter((n) => n.trim().match(/^\d+$/));
+                .split('|')
+                .map(n => n.trim())
+                .filter((n) => n.match(/^\d+$/));
               if (numbers.length >= 3) {
                 const validNumbers = numbers.filter((n) => {
                   const num = parseInt(n);
@@ -1037,13 +1059,16 @@ async function scrapeArrivalReportFromUrl(url, robotsRules = null) {
         const numbersMatch = context.match(/(\d+(?:\s*[-–]\s*\d+){2,})/);
         if (numbersMatch) {
           let candidate = numbersMatch[1].trim();
+          // CORRECTION : Extraire les numéros complets sans casser les nombres à plusieurs chiffres
           candidate = candidate
             .replace(/\s+/g, ' ')
-            .replace(/[-–]/g, '-')
-            .replace(/\s*-\s*/g, '-');
+            .replace(/\s*[-–]\s*/g, '|')
+            .replace(/\s+/g, '|')
+            .replace(/\|+/g, '|');
           const numbers = candidate
-            .split('-')
-            .filter((n) => n.trim().match(/^\d+$/));
+            .split('|')
+            .map(n => n.trim())
+            .filter((n) => n.match(/^\d+$/));
           if (numbers.length >= 3) {
             const validNumbers = numbers.filter((n) => {
               const num = parseInt(n);
