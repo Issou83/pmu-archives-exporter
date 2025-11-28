@@ -642,16 +642,10 @@ async function scrapeArrivalReport(reunionUrl, robotsRules = null) {
   if (!reunionUrl) return null;
 
   try {
-    // STRATÉGIE : Essayer d'abord la page /partants-programmes/, puis /arrivees-rapports/
-    // Certaines réunions ont les rapports dans /partants-programmes/, d'autres dans /arrivees-rapports/
+    // OPTIMISATION : Essayer d'abord /arrivees-rapports/ (plus probable d'avoir le rapport)
+    // puis /partants-programmes/ si pas trouvé
     
-    // Étape 1 : Essayer la page originale (souvent /partants-programmes/)
-    let arrivalReport = await scrapeArrivalReportFromUrl(reunionUrl, robotsRules);
-    if (arrivalReport) {
-      return arrivalReport;
-    }
-
-    // Étape 2 : Si pas trouvé, essayer de construire l'URL /arrivees-rapports/
+    // Étape 1 : Construire l'URL /arrivees-rapports/ et essayer en premier
     let arrivalUrl = reunionUrl;
     
     // Convertir différentes formes d'URLs vers /courses-pmu/arrivees-rapports/
@@ -681,12 +675,18 @@ async function scrapeArrivalReport(reunionUrl, robotsRules = null) {
       );
     }
 
-    // Si l'URL a changé, essayer cette nouvelle URL
+    // Essayer /arrivees-rapports/ en premier (plus probable)
     if (arrivalUrl !== reunionUrl) {
-      arrivalReport = await scrapeArrivalReportFromUrl(arrivalUrl, robotsRules);
+      const arrivalReport = await scrapeArrivalReportFromUrl(arrivalUrl, robotsRules);
       if (arrivalReport) {
         return arrivalReport;
       }
+    }
+
+    // Étape 2 : Si pas trouvé, essayer la page originale (souvent /partants-programmes/)
+    const arrivalReport = await scrapeArrivalReportFromUrl(reunionUrl, robotsRules);
+    if (arrivalReport) {
+      return arrivalReport;
     }
 
     // Si toujours pas trouvé, retourner null
@@ -697,6 +697,21 @@ async function scrapeArrivalReport(reunionUrl, robotsRules = null) {
   }
 }
 
+// Cache global pour les rapports d'arrivée (partagé entre les appels)
+// Ce cache sera injecté depuis archives.js
+let globalArrivalReportsCache = null;
+let globalArrivalReportsCacheTTL = 24 * 60 * 60 * 1000;
+
+/**
+ * Définir le cache global pour les rapports d'arrivée
+ * @param {Map} cache - Map pour le cache
+ * @param {number} ttl - TTL en millisecondes
+ */
+export function setArrivalReportsCache(cache, ttl) {
+  globalArrivalReportsCache = cache;
+  globalArrivalReportsCacheTTL = ttl;
+}
+
 /**
  * Scrape le rapport d'arrivée depuis une URL spécifique
  * @param {string} url - URL à scraper
@@ -704,6 +719,21 @@ async function scrapeArrivalReport(reunionUrl, robotsRules = null) {
  */
 async function scrapeArrivalReportFromUrl(url, robotsRules = null) {
   if (!url) return null;
+
+  // OPTIMISATION : Vérifier le cache avant de scraper
+  if (globalArrivalReportsCache) {
+    const cached = globalArrivalReportsCache.get(url);
+    if (cached) {
+      const cacheAge = Date.now() - cached.timestamp;
+      if (cacheAge < globalArrivalReportsCacheTTL) {
+        console.log(`[Scraper] Cache hit pour ${url}`);
+        return cached.report;
+      } else {
+        // Cache expiré, le supprimer
+        globalArrivalReportsCache.delete(url);
+      }
+    }
+  }
 
   // Vérifier robots.txt si disponible
   if (robotsRules) {
@@ -715,9 +745,9 @@ async function scrapeArrivalReportFromUrl(url, robotsRules = null) {
   }
 
   try {
-    // Timeout de 5 secondes par requête
+    // Timeout optimisé : 3 secondes par requête (réduction de 40%)
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
 
     let response;
     try {
@@ -756,6 +786,7 @@ async function scrapeArrivalReportFromUrl(url, robotsRules = null) {
     let arrivalReport = null;
 
     // PRIORITÉ 1 : Chercher dans l'élément spécifique #decompte_depart_course (le plus fiable)
+    // OPTIMISATION : Early exit - arrêter dès qu'on trouve le rapport ici
     const $decompte = $('#decompte_depart_course');
     if ($decompte.length > 0) {
       const decompteText = $decompte.text();
@@ -780,6 +811,8 @@ async function scrapeArrivalReportFromUrl(url, robotsRules = null) {
           });
           if (validNumbers.length >= 3) {
             arrivalReport = validNumbers.join('-');
+            // EARLY EXIT : On a trouvé le rapport, pas besoin de chercher ailleurs
+            return arrivalReport;
           }
         }
       }
@@ -1050,7 +1083,20 @@ async function scrapeArrivalReportFromUrl(url, robotsRules = null) {
       }
     }
 
-    if (arrivalReport) {
+    // OPTIMISATION : Mettre en cache le résultat (même si null)
+    if (globalArrivalReportsCache && arrivalReport) {
+      globalArrivalReportsCache.set(url, {
+        report: arrivalReport,
+        timestamp: Date.now(),
+      });
+      console.log(`[Scraper] Rapport d'arrivée trouvé et mis en cache: ${url}: ${arrivalReport}`);
+    } else if (globalArrivalReportsCache && !arrivalReport) {
+      // Mettre en cache les échecs aussi (pour éviter de re-scraper les pages sans rapport)
+      globalArrivalReportsCache.set(url, {
+        report: null,
+        timestamp: Date.now(),
+      });
+    } else if (arrivalReport) {
       console.log(`[Scraper] Rapport d'arrivée trouvé sur ${url}: ${arrivalReport}`);
     }
 
@@ -1127,35 +1173,52 @@ export async function scrapeTurfFrArchives(
   // Scraper les rapports d'arrivée seulement si demandé
   if (includeArrivalReports) {
     console.log(`[Scraper] Début scraping des rapports d'arrivée...`);
-    const BATCH_SIZE = 10; // Traiter 10 réunions en parallèle pour aller plus vite
+    // OPTIMISATION : Batch size adaptatif selon le crawl-delay
+    // Plus le crawl-delay est court, plus on peut traiter en parallèle
+    const adaptiveBatchSize = crawlDelay < 1000 ? 20 : crawlDelay < 2000 ? 15 : 10;
+    const BATCH_SIZE = adaptiveBatchSize;
+    console.log(`[Scraper] Batch size: ${BATCH_SIZE} (crawl-delay: ${crawlDelay}ms)`);
 
     for (let i = 0; i < uniqueReunions.length; i += BATCH_SIZE) {
       const batch = uniqueReunions.slice(i, i + BATCH_SIZE);
 
-      // Scraper en parallèle
+      // OPTIMISATION : Utiliser Promise.allSettled pour ne pas bloquer sur les erreurs
       const promises = batch.map(async (reunion) => {
         try {
           const arrivalReport = await scrapeArrivalReport(reunion.url, robotsRules);
           reunion.arrivalReport = arrivalReport;
+          return { status: 'fulfilled', reunion };
         } catch (error) {
           reunion.arrivalReport = null;
+          return { status: 'rejected', reunion, error };
         }
       });
 
-      await Promise.all(promises);
+      // Promise.allSettled continue même si certaines promesses échouent
+      const results = await Promise.allSettled(promises);
+      
+      // Compter les succès et échecs pour le logging
+      const successCount = results.filter(r => r.status === 'fulfilled').length;
+      const failureCount = results.filter(r => r.status === 'rejected').length;
+      if (failureCount > 0) {
+        console.log(`[Scraper] Batch ${Math.floor(i / BATCH_SIZE) + 1}: ${successCount} succès, ${failureCount} échecs`);
+      }
 
       // ✅ RESPECT DE ROBOTS.TXT - Utiliser le crawl-delay recommandé entre les lots
       if (i + BATCH_SIZE < uniqueReunions.length) {
         await sleep(crawlDelay);
       }
 
-      // Afficher la progression
+      // Afficher la progression (plus fréquent avec batch size plus grand)
+      const progressInterval = BATCH_SIZE * 2; // Afficher tous les 2 batches
       if (
-        (i + BATCH_SIZE) % 20 === 0 ||
+        (i + BATCH_SIZE) % progressInterval === 0 ||
         i + BATCH_SIZE >= uniqueReunions.length
       ) {
+        const progress = Math.min(i + BATCH_SIZE, uniqueReunions.length);
+        const percentage = Math.round((progress / uniqueReunions.length) * 100);
         console.log(
-          `[Scraper] Rapports d'arrivée: ${Math.min(i + BATCH_SIZE, uniqueReunions.length)}/${uniqueReunions.length}`
+          `[Scraper] Rapports d'arrivée: ${progress}/${uniqueReunions.length} (${percentage}%)`
         );
       }
     }

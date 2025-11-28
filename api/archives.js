@@ -1,4 +1,4 @@
-import { scrapeTurfFrArchives } from './scrapers/turfScraper.js';
+import { scrapeTurfFrArchives, setArrivalReportsCache } from './scrapers/turfScraper.js';
 import { scrapePmuJsonArchives } from './scrapers/pmuJsonScraper.js';
 
 // Cache mémoire simple avec TTL
@@ -204,6 +204,9 @@ export default async function handler(req, res) {
       }
       console.log(`[API] Début scraping Turf-FR...`);
       try {
+        // OPTIMISATION : Injecter le cache des rapports d'arrivée dans le scraper
+        setArrivalReportsCache(arrivalReportsCache, ARRIVAL_REPORTS_CACHE_TTL);
+        
         // Optimisation : désactiver les rapports d'arrivée si trop de mois/années
         // pour éviter les timeouts (les rapports peuvent être récupérés plus tard)
         const totalMonths = years.length * months.length;
