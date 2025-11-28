@@ -6,12 +6,14 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 3000,
+    host: true, // Permet l'accès depuis le réseau
     proxy: {
       '/api': {
-        target: 'http://localhost:3001',
+        target: process.env.VERCEL_URL 
+          ? `https://${process.env.VERCEL_URL}` 
+          : 'http://localhost:3001',
         changeOrigin: true,
-        // En développement, les API routes ne fonctionnent pas avec Vite seul
-        // Il faut utiliser vercel dev ou un serveur Node.js séparé
+        secure: false,
         configure: (proxy, _options) => {
           proxy.on('error', (err, _req, _res) => {
             console.log('Proxy error:', err);
