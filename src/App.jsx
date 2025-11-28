@@ -121,9 +121,52 @@ function App() {
         onClose={hideToast}
       />
 
-      {/* Footer moderne */}
-      <footer className="mt-16 py-8 text-center text-gray-400 text-sm">
-        <p>© 2025 PMU Archives Exporter - Outil professionnel d'extraction de données</p>
+      {/* Footer moderne avec liens légaux */}
+      <footer className="mt-16 py-8 bg-gray-50 border-t border-gray-200">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+            <div className="text-gray-500 text-sm">
+              <p>© 2025 PMU Archives Exporter - Outil professionnel d'extraction de données</p>
+              <p className="text-xs mt-1 text-gray-400">
+                ⚠️ Utilisation à vos propres risques - Voir les documents légaux ci-dessous
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-4 text-sm">
+              <a
+                href="/LEGAL/DISCLAIMER.md"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-indigo-600 hover:text-indigo-800 underline"
+              >
+                ⚠️ Avertissement
+              </a>
+              <a
+                href="/LEGAL/CGU.md"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-indigo-600 hover:text-indigo-800 underline"
+              >
+                📜 CGU
+              </a>
+              <a
+                href="/LEGAL/POLITIQUE_CONFIDENTIALITE.md"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-indigo-600 hover:text-indigo-800 underline"
+              >
+                🔒 Confidentialité
+              </a>
+              <a
+                href="/ANALYSE_JURIDIQUE_COMPLETE.md"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-indigo-600 hover:text-indigo-800 underline"
+              >
+                ⚖️ Analyse Juridique
+              </a>
+            </div>
+          </div>
+        </div>
       </footer>
     </div>
   );

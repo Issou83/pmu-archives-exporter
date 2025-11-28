@@ -1,0 +1,62 @@
+﻿
+<!DOCTYPE html>
+<html class="no-js" lang="fr">
+    <head>
+    <script type="text/javascript" src="https://cache.consentframework.com/js/pa/25846/c/cvvai/stub" charset="utf-8"></script>
+<script type="text/javascript" src="https://choices.consentframework.com/js/pa/25846/c/cvvai/cmp" charset="utf-8" async></script>            <!-- Google Tag Manager -->
+            <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+            new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+            j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+            'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+            })(window,document,'script','dataLayer','GTM-PNGZ3CF');</script>
+            <!-- End Google Tag Manager -->
+                    <title>TURF FR : Conditions générales de Vente </title>
+            <meta name="description"  content="Conditions générales concernant les abonnements TURF FR ou l'achat d'un logiciel" >
+        
+        <link rel="canonical"  href="https://www.turf-fr.com/conditions-generales-de-vente" >
+        <meta http-equiv="Content-Type" content="text/html;" charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+        <link rel="alternate" type="application/rss+xml" title="Subscribe to TURF-FR" href="https://www.turf-fr.com/feed" />
+        <meta name="csrf-token" content="PUNQbgVt60dH8WX65jJY1T9N986IRtJgKi9q9O0i">
+        <meta property="og:title"  content="TURF FR : Conditions générales de Vente"  >
+        <meta property="og:url"  content="https://www.turf-fr.com/conditions-generales-de-vente" >
+                    <meta property="og:image" content="https://www.turf-fr.com/images/logo/PRONOSTIC_QUINTE.jpg">
+            <meta property="og:type" content="website">
+            <meta name="twitter:image" content="https://www.turf-fr.com/images/logo-turf-fr.jpg" />
+                <meta property="og:site_name" content="TURF FR">
+        <meta property="og:description"  content="Conditions générales concernant les abonnements TURF FR ou l'achat d'un logiciel" >
+        <meta name="twitter:card" content="summary" />
+        <meta name="twitter:site"  content="https://www.turf-fr.com/conditions-generales-de-vente"  />
+        <meta name="twitter:title"  content="TURF FR : Conditions générales de Vente"  />
+        <meta name="twitter:description"  content="Conditions générales concernant les abonnements TURF FR ou l'achat d'un logiciel"  />
+        <meta name="twitter:image" content="https://www.turf-fr.com/images/logo-turf-fr.jpg" />
+                    <meta name="robots" content="max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
+                
+        
+
+
+
+        
+        <!--        -->
+        <!--        Favicon-->
+        <link rel="apple-touch-icon" sizes="57x57" href="https://www.turf-fr.com/images/apple-icon-57x57.png">
+        <link rel="apple-touch-icon" sizes="60x60" href="https://www.turf-fr.com/images/apple-icon-60x60.png">
+        <link rel="apple-touch-icon" sizes="72x72" href="https://www.turf-fr.com/images/apple-icon-72x72.png">
+        <link rel="apple-touch-icon" sizes="76x76" href="https://www.turf-fr.com/images/apple-icon-76x76.png">
+        <link rel="apple-touch-icon" sizes="114x114" href="https://www.turf-fr.com/images/apple-icon-114x114.png">
+        <link rel="apple-touch-icon" sizes="120x120" href="https://www.turf-fr.com/images/apple-icon-120x120.png">
+        <link rel="apple-touch-icon" sizes="144x144" href="https://www.turf-fr.com/images/apple-icon-144x144.png">
+        <link rel="apple-touch-icon" sizes="152x152" href="https://www.turf-fr.com/images/apple-icon-152x152.png">
+        <link rel="apple-touch-icon" sizes="180x180" href="https://www.turf-fr.com/images/apple-icon-180x180.png">
+        <link rel="icon" type="image/png" sizes="192x192"  href="https://www.turf-fr.com/images/android-icon-192x192.png">
+        <link rel="icon" type="image/png" sizes="32x32" href="https://www.turf-fr.com/images/favicon-32x32.png">
+        <link rel="icon" type="image/png" sizes="96x96" href="https://www.turf-fr.com/images/favicon-96x96.png">
+        <link rel="icon" type="image/png" sizes="16x16" href="https://www.turf-fr.com/images/favicon-16x16.png">
+        <link rel="manifest" href="https://www.turf-fr.com/images/manifest.json">
+        <meta name="msapplication-TileColor" content="#ffffff">
+        <meta name="msapplication-TileImage" content="/" href="https://www.turf-fr.com/images/ms-icon-144x144.png">
+        <meta name="theme-color" content="#ffffff">
+                <link href="https://www.turf-fr.com/css/turfglobalcss.min.css?v=01764295202" rel="stylesheet">
+        <link rel="stylesheet" href="https://www.turf-fr.com/css/print.css?v=1764295202" media="print">
+                <link href="https://www.turf-fr.com/css/global.css?v=1764295202" rel="stylesheet">
+        <!-- 

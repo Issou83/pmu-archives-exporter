@@ -1,4 +1,9 @@
 import * as cheerio from 'cheerio';
+import {
+  fetchRobotsTxt,
+  isUrlAllowed,
+  getCrawlDelay,
+} from '../utils/robotsParser.js';
 
 // Mois en français (dupliqué depuis constants.js pour éviter les imports cross-module)
 const MONTHS = [
@@ -90,10 +95,22 @@ function parseDate(dateText) {
 
 /**
  * Scrape une page d'archives pour un mois donné
+ * @param {string} year - Année
+ * @param {string} monthSlug - Slug du mois
+ * @param {Object} robotsRules - Règles robots.txt (optionnel)
  */
-async function scrapeMonthPage(year, monthSlug) {
+async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
   const url = `https://www.turf-fr.com/archives/courses-pmu/${year}/${monthSlug}`;
   console.log(`[Scraper] Scraping: ${url}`);
+
+  // Vérifier robots.txt si disponible
+  if (robotsRules) {
+    const allowed = isUrlAllowed(robotsRules, url, '*');
+    if (!allowed) {
+      console.warn(`[Scraper] URL interdite par robots.txt: ${url}`);
+      return [];
+    }
+  }
 
   // Vérifier que fetch est disponible
   if (typeof fetch === 'undefined') {
@@ -106,7 +123,7 @@ async function scrapeMonthPage(year, monthSlug) {
     const response = await fetch(url, {
       headers: {
         'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'PMU-Archives-Exporter/1.0 (Educational/Research Project; Contact: voir README)',
         Accept:
           'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
         'Accept-Language': 'fr-FR,fr;q=0.9,en;q=0.8',
@@ -618,8 +635,10 @@ async function scrapeMonthPage(year, monthSlug) {
 
 /**
  * Scrape le rapport d'arrivée depuis une page de réunion
+ * @param {string} reunionUrl - URL de la réunion
+ * @param {Object} robotsRules - Règles robots.txt (optionnel)
  */
-async function scrapeArrivalReport(reunionUrl) {
+async function scrapeArrivalReport(reunionUrl, robotsRules = null) {
   if (!reunionUrl) return null;
 
   try {
@@ -627,7 +646,7 @@ async function scrapeArrivalReport(reunionUrl) {
     // Certaines réunions ont les rapports dans /partants-programmes/, d'autres dans /arrivees-rapports/
     
     // Étape 1 : Essayer la page originale (souvent /partants-programmes/)
-    let arrivalReport = await scrapeArrivalReportFromUrl(reunionUrl);
+    let arrivalReport = await scrapeArrivalReportFromUrl(reunionUrl, robotsRules);
     if (arrivalReport) {
       return arrivalReport;
     }
@@ -664,7 +683,7 @@ async function scrapeArrivalReport(reunionUrl) {
 
     // Si l'URL a changé, essayer cette nouvelle URL
     if (arrivalUrl !== reunionUrl) {
-      arrivalReport = await scrapeArrivalReportFromUrl(arrivalUrl);
+      arrivalReport = await scrapeArrivalReportFromUrl(arrivalUrl, robotsRules);
       if (arrivalReport) {
         return arrivalReport;
       }
@@ -680,9 +699,20 @@ async function scrapeArrivalReport(reunionUrl) {
 
 /**
  * Scrape le rapport d'arrivée depuis une URL spécifique
+ * @param {string} url - URL à scraper
+ * @param {Object} robotsRules - Règles robots.txt (optionnel)
  */
-async function scrapeArrivalReportFromUrl(url) {
+async function scrapeArrivalReportFromUrl(url, robotsRules = null) {
   if (!url) return null;
+
+  // Vérifier robots.txt si disponible
+  if (robotsRules) {
+    const allowed = isUrlAllowed(robotsRules, url, '*');
+    if (!allowed) {
+      console.log(`[Scraper] URL interdite par robots.txt: ${url}`);
+      return null;
+    }
+  }
 
   try {
     // Timeout de 5 secondes par requête
@@ -695,7 +725,7 @@ async function scrapeArrivalReportFromUrl(url) {
         signal: controller.signal,
         headers: {
           'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'PMU-Archives-Exporter/1.0 (Educational/Research Project; Contact: voir README)',
           Accept:
             'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
           'Accept-Language': 'fr-FR,fr;q=0.9,en;q=0.8',
@@ -1045,6 +1075,13 @@ export async function scrapeTurfFrArchives(
   console.log(
     `[Scraper] Début scraping Turf-FR: années=${years.join(',')}, mois=${months.join(',')}`
   );
+
+  // ✅ RESPECT DE ROBOTS.TXT - Charger les règles au début
+  console.log(`[Scraper] Chargement de robots.txt...`);
+  const robotsRules = await fetchRobotsTxt('https://www.turf-fr.com');
+  const crawlDelay = getCrawlDelay(robotsRules, '*');
+  console.log(`[Scraper] Crawl-delay recommandé: ${crawlDelay}ms`);
+
   const allReunions = [];
 
   for (const year of years) {
@@ -1057,14 +1094,14 @@ export async function scrapeTurfFrArchives(
 
       const monthSlug = monthData.slug;
       console.log(`[Scraper] Scraping ${year}/${monthSlug}...`);
-      const reunions = await scrapeMonthPage(year, monthSlug);
+      const reunions = await scrapeMonthPage(year, monthSlug, robotsRules);
       console.log(
         `[Scraper] ${reunions.length} réunions trouvées pour ${year}/${monthSlug}`
       );
       allReunions.push(...reunions);
 
-      // Sleep 400ms entre les pages pour éviter le scraping agressif
-      await sleep(400);
+      // ✅ RESPECT DE ROBOTS.TXT - Utiliser le crawl-delay recommandé
+      await sleep(crawlDelay);
     }
   }
 
@@ -1098,7 +1135,7 @@ export async function scrapeTurfFrArchives(
       // Scraper en parallèle
       const promises = batch.map(async (reunion) => {
         try {
-          const arrivalReport = await scrapeArrivalReport(reunion.url);
+          const arrivalReport = await scrapeArrivalReport(reunion.url, robotsRules);
           reunion.arrivalReport = arrivalReport;
         } catch (error) {
           reunion.arrivalReport = null;
@@ -1107,9 +1144,9 @@ export async function scrapeTurfFrArchives(
 
       await Promise.all(promises);
 
-      // Sleep 50ms entre les lots pour éviter le scraping agressif
+      // ✅ RESPECT DE ROBOTS.TXT - Utiliser le crawl-delay recommandé entre les lots
       if (i + BATCH_SIZE < uniqueReunions.length) {
-        await sleep(50);
+        await sleep(crawlDelay);
       }
 
       // Afficher la progression
