@@ -1,3 +1,5 @@
+import React from 'react';
+
 /**
  * Contenu des documents légaux pour affichage dans l'interface
  */

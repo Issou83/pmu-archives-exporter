@@ -12,7 +12,7 @@ import {
   CGU_CONTENT,
   PRIVACY_CONTENT,
   LEGAL_ANALYSIS_CONTENT,
-} from './data/legalDocuments';
+} from './data/legalDocuments.jsx';
 
 function App() {
   const [source, setSource] = useState(SOURCES.TURF_FR);
