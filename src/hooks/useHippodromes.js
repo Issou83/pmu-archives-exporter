@@ -18,9 +18,10 @@ export function useHippodromes(selectedCountry = 'FR') {
     setLoading(true);
     setError(null);
 
-    // D'abord utiliser la liste locale
+    // D'abord utiliser la liste locale (dédupliquée)
     const localHippodromes = getHippodromesByCountry(selectedCountry);
-    setHippodromes(localHippodromes);
+    const uniqueLocalHippodromes = [...new Set(localHippodromes)];
+    setHippodromes(uniqueLocalHippodromes);
     setLoading(false);
 
     // Ensuite, essayer de charger depuis l'API pour une mise à jour

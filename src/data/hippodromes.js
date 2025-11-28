@@ -48,13 +48,6 @@ export const HIPPODROMES_BY_COUNTRY = {
     'Lens',
     'Amiens',
     'Compiègne',
-    'Chantilly',
-    'Cabourg',
-    'Deauville',
-    'Caen',
-    'Vire',
-    'Argentan',
-    'Alençon',
     
     // Normandie
     'Deauville',
