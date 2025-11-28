@@ -5,6 +5,10 @@ import { scrapePmuJsonArchives } from './scrapers/pmuJsonScraper.js';
 const cache = new Map();
 const CACHE_TTL = 6 * 60 * 60 * 1000; // 6 heures
 
+// Cache spécifique pour les rapports d'arrivée (évite de re-scraper les mêmes URLs)
+const arrivalReportsCache = new Map();
+const ARRIVAL_REPORTS_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 heures
+
 // Rate limiting simple par IP
 const rateLimitMap = new Map();
 const RATE_LIMIT = 30; // 30 requêtes
