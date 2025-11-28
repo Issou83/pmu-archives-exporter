@@ -635,17 +635,27 @@ async function scrapeArrivalReport(reunionUrl) {
     // Étape 2 : Si pas trouvé, essayer de construire l'URL /arrivees-rapports/
     let arrivalUrl = reunionUrl;
     
-    // Convertir /partants-programmes/ vers /courses-pmu/arrivees-rapports/
+    // Convertir différentes formes d'URLs vers /courses-pmu/arrivees-rapports/
     if (arrivalUrl.includes('/partants-programmes/')) {
       arrivalUrl = arrivalUrl.replace(
         '/partants-programmes/',
         '/courses-pmu/arrivees-rapports/'
       );
+    } else if (arrivalUrl.includes('/partants/')) {
+      arrivalUrl = arrivalUrl.replace(
+        '/partants/',
+        '/courses-pmu/arrivees-rapports/'
+      );
+    } else if (arrivalUrl.includes('/pronostics/')) {
+      arrivalUrl = arrivalUrl.replace(
+        '/pronostics/',
+        '/courses-pmu/arrivees-rapports/'
+      );
     } else if (
       !arrivalUrl.includes('/arrivees-rapports/') &&
-      !arrivalUrl.includes('/courses-pmu/')
+      arrivalUrl.includes('/courses-pmu/')
     ) {
-      // Si l'URL ne contient pas déjà arrivees-rapports, essayer de la convertir
+      // Si l'URL contient /courses-pmu/ mais pas /arrivees-rapports/, essayer de la convertir
       arrivalUrl = arrivalUrl.replace(
         /\/courses-pmu\/[^\/]+\//,
         '/courses-pmu/arrivees-rapports/'
