@@ -9,14 +9,20 @@ export default defineConfig({
     host: true, // Permet l'accès depuis le réseau
     proxy: {
       '/api': {
+        // En développement local, pointer vers la production Vercel
+        // Pour tester les API en local, utilisez 'npx vercel dev' à la place
         target: process.env.VERCEL_URL 
           ? `https://${process.env.VERCEL_URL}` 
-          : 'http://localhost:3001',
+          : 'https://pmu-archives-exporter.vercel.app',
         changeOrigin: true,
-        secure: false,
+        secure: true,
         configure: (proxy, _options) => {
           proxy.on('error', (err, _req, _res) => {
-            console.log('Proxy error:', err);
+            // Ne pas afficher les erreurs de proxy en développement
+            // car on utilise la production pour les API
+            if (process.env.NODE_ENV !== 'production') {
+              console.log('Proxy vers production Vercel');
+            }
           });
         },
       },

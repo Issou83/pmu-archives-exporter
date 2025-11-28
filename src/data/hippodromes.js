@@ -108,9 +108,6 @@ export const HIPPODROMES_BY_COUNTRY = {
     'Mauquenchy',
     'La Capelle',
     'Wissembourg',
-    'Nancy',
-    'Metz',
-    'Reims',
   ],
   
   GB: [
