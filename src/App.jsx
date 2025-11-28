@@ -17,7 +17,7 @@ function App() {
     dateTo: '',
     hippodromes: [],
     reunionNumbers: [],
-    countries: [],
+    countries: ['FR'], // France par défaut
     textQuery: '',
   });
   const [toast, setToast] = useState({ message: '', type: 'success' });
@@ -44,14 +44,7 @@ function App() {
     refetch();
   };
 
-  // Extraire les suggestions d'hippodromes depuis les données
-  const suggestions = useMemo(() => {
-    if (!Array.isArray(data)) {
-      return { hippodromes: [] };
-    }
-    const hippodromes = [...new Set(data.map((r) => r.hippodrome).filter(Boolean))];
-    return { hippodromes };
-  }, [data]);
+  // Les suggestions d'hippodromes sont maintenant gérées par le hook useHippodromes
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
@@ -79,7 +72,6 @@ function App() {
           filters={filters}
           onFiltersChange={handleFiltersChange}
           onSearch={handleSearch}
-          suggestions={suggestions}
         />
 
         <ExportBar
