@@ -25,9 +25,10 @@ J'ai analysé plusieurs pages de réunions qui n'avaient pas de rapport d'arriv�
 ### Structure HTML Découverte
 
 Le rapport d'arrivée est présent dans un élément spécifique :
+
 - **ID** : `#decompte_depart_course`
 - **Classe** : `title2`
-- **Format** : "Arrivée \n                    1 - 5 - 11 - 12 - 10" (avec espaces multiples et retours à la ligne)
+- **Format** : "Arrivée \n 1 - 5 - 11 - 12 - 10" (avec espaces multiples et retours à la ligne)
 
 ## ✅ Solution Implémentée
 
@@ -52,10 +53,11 @@ Le rapport d'arrivée est présent dans un élément spécifique :
 ### Pattern Regex Amélioré
 
 ```javascript
-/arrivée[ée\s\n]*(\d+(?:\s*[-–]\s*\d+){2,})/i
+/arrivée[ée\s\n]*(\d+(?:\s*[-–]\s*\d+){2,})/i;
 ```
 
 Ce pattern capture :
+
 - "Arrivée" avec ou sans accent
 - Espaces multiples et retours à la ligne (`\s\n`)
 - Séquence de numéros séparés par des tirets avec espaces
@@ -67,6 +69,7 @@ candidate = candidate.replace(/\s*[-–]\s*/g, '-');
 ```
 
 Cette ligne :
+
 - Remplace tous les espaces autour des tirets par un seul tiret
 - Normalise les tirets Unicode (`–`) en tirets standards (`-`)
 - Produit un format propre : `1-5-11-12-10`
@@ -74,12 +77,14 @@ Cette ligne :
 ## 📊 Résultats des Tests
 
 ### Avant l'Amélioration
+
 - ❌ hk R2 : "Non disponible"
 - ❌ cagnes R1 : "Non disponible"
 - ❌ bel R2 : "Non disponible"
 - ❌ spa R2 : "Non disponible"
 
 ### Après l'Amélioration
+
 - ✅ hk R2 : `1-5-11-12-10`
 - ✅ cagnes R1 : `5-7-11-6-1`
 - ✅ bel R2 : `7-18-5-16-9`
@@ -101,4 +106,3 @@ Cette approche garantit une **précision maximale** tout en maintenant la perfor
 ## ✅ Validation
 
 Tous les tests passent avec succès. Le scraper trouve maintenant **100% des rapports d'arrivée** présents sur les pages source.
-
