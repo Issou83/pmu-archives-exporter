@@ -623,21 +623,65 @@ async function scrapeArrivalReport(reunionUrl) {
   if (!reunionUrl) return null;
 
   try {
-    // IMPORTANT : Les pages /partants-programmes/ contiennent déjà les rapports d'arrivée
-    // Ne pas convertir l'URL, utiliser directement celle fournie
+    // STRATÉGIE : Essayer d'abord la page /partants-programmes/, puis /arrivees-rapports/
+    // Certaines réunions ont les rapports dans /partants-programmes/, d'autres dans /arrivees-rapports/
+    
+    // Étape 1 : Essayer la page originale (souvent /partants-programmes/)
+    let arrivalReport = await scrapeArrivalReportFromUrl(reunionUrl);
+    if (arrivalReport) {
+      return arrivalReport;
+    }
+
+    // Étape 2 : Si pas trouvé, essayer de construire l'URL /arrivees-rapports/
     let arrivalUrl = reunionUrl;
     
-    // Si l'URL pointe déjà vers /arrivees-rapports/, l'utiliser telle quelle
-    // Sinon, utiliser l'URL originale (qui est probablement /partants-programmes/)
-    // car ces pages contiennent les rapports d'arrivée directement
+    // Convertir /partants-programmes/ vers /courses-pmu/arrivees-rapports/
+    if (arrivalUrl.includes('/partants-programmes/')) {
+      arrivalUrl = arrivalUrl.replace(
+        '/partants-programmes/',
+        '/courses-pmu/arrivees-rapports/'
+      );
+    } else if (
+      !arrivalUrl.includes('/arrivees-rapports/') &&
+      !arrivalUrl.includes('/courses-pmu/')
+    ) {
+      // Si l'URL ne contient pas déjà arrivees-rapports, essayer de la convertir
+      arrivalUrl = arrivalUrl.replace(
+        /\/courses-pmu\/[^\/]+\//,
+        '/courses-pmu/arrivees-rapports/'
+      );
+    }
 
-    // Timeout de 5 secondes par requête (augmenté de 3 à 5 pour les pages lentes)
+    // Si l'URL a changé, essayer cette nouvelle URL
+    if (arrivalUrl !== reunionUrl) {
+      arrivalReport = await scrapeArrivalReportFromUrl(arrivalUrl);
+      if (arrivalReport) {
+        return arrivalReport;
+      }
+    }
+
+    // Si toujours pas trouvé, retourner null
+    return null;
+  } catch (error) {
+    console.log(`[Scraper] Erreur pour ${reunionUrl}: ${error.message}`);
+    return null;
+  }
+}
+
+/**
+ * Scrape le rapport d'arrivée depuis une URL spécifique
+ */
+async function scrapeArrivalReportFromUrl(url) {
+  if (!url) return null;
+
+  try {
+    // Timeout de 5 secondes par requête
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);
 
     let response;
     try {
-      response = await fetch(arrivalUrl, {
+      response = await fetch(url, {
         signal: controller.signal,
         headers: {
           'User-Agent':
@@ -651,24 +695,17 @@ async function scrapeArrivalReport(reunionUrl) {
     } catch (error) {
       clearTimeout(timeoutId);
       if (error.name === 'AbortError') {
-        console.log(`[Scraper] Timeout (5s) pour ${arrivalUrl}`);
-      } else {
-        console.log(`[Scraper] Erreur réseau pour ${arrivalUrl}: ${error.message}`);
+        // Timeout silencieux
+        return null;
       }
+      // Autre erreur réseau
       return null;
     }
     
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      // Si 404, essayer l'URL originale
-      if (response.status === 404 && arrivalUrl !== reunionUrl) {
-        console.log(
-          `[Scraper] 404 sur ${arrivalUrl}, essai avec URL originale`
-        );
-        return await scrapeArrivalReport(reunionUrl);
-      }
-      console.log(`[Scraper] HTTP ${response.status} pour ${arrivalUrl}`);
+      // 404 ou autre erreur HTTP
       return null;
     }
 
@@ -974,21 +1011,12 @@ async function scrapeArrivalReport(reunionUrl) {
     }
 
     if (arrivalReport) {
-      console.log(`[Scraper] Rapport d'arrivée trouvé: ${arrivalReport}`);
-    } else {
-      console.log(
-        `[Scraper] Aucun rapport d'arrivée trouvé pour ${arrivalUrl}`
-      );
+      console.log(`[Scraper] Rapport d'arrivée trouvé sur ${url}: ${arrivalReport}`);
     }
 
     return arrivalReport || null;
   } catch (error) {
-    // Ignorer les erreurs de timeout ou réseau silencieusement
-    if (error.name === 'AbortError') {
-      console.log(`[Scraper] Timeout pour ${reunionUrl}`);
-    } else {
-      console.log(`[Scraper] Erreur pour ${reunionUrl}: ${error.message}`);
-    }
+    // Erreur silencieuse
     return null;
   }
 }
