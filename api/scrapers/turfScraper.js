@@ -631,22 +631,33 @@ async function scrapeArrivalReport(reunionUrl) {
     // Sinon, utiliser l'URL originale (qui est probablement /partants-programmes/)
     // car ces pages contiennent les rapports d'arrivée directement
 
-    // Timeout de 3 secondes par requête pour éviter les blocages
+    // Timeout de 5 secondes par requête (augmenté de 3 à 5 pour les pages lentes)
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3000);
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-    const response = await fetch(arrivalUrl, {
-      signal: controller.signal,
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        Accept:
-          'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-        'Accept-Language': 'fr-FR,fr;q=0.9,en;q=0.8',
-        Referer: 'https://www.turf-fr.com/',
-      },
-    });
-
+    let response;
+    try {
+      response = await fetch(arrivalUrl, {
+        signal: controller.signal,
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          Accept:
+            'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'Accept-Language': 'fr-FR,fr;q=0.9,en;q=0.8',
+          Referer: 'https://www.turf-fr.com/',
+        },
+      });
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        console.log(`[Scraper] Timeout (5s) pour ${arrivalUrl}`);
+      } else {
+        console.log(`[Scraper] Erreur réseau pour ${arrivalUrl}: ${error.message}`);
+      }
+      return null;
+    }
+    
     clearTimeout(timeoutId);
 
     if (!response.ok) {
@@ -673,13 +684,15 @@ async function scrapeArrivalReport(reunionUrl) {
       const decompteText = $decompte.text();
       // Pattern pour "Arrivée \n                    1 - 5 - 11 - 12 - 10" avec espaces multiples
       // Améliorer pour gérer les numéros sur plusieurs lignes
+      // Pattern amélioré : accepter aussi les numéros séparés par des espaces uniquement
       const decompteMatch = decompteText.match(
-        /arrivée[ée\s\n:]*(\d+(?:\s*[-–]\s*\d+){2,})/i
+        /arrivée[ée\s\n:]*(\d+(?:\s*[-–]?\s*\d+){2,})/i
       );
       if (decompteMatch) {
         let candidate = decompteMatch[1].trim();
         // Nettoyer : remplacer tous les espaces autour des tirets et normaliser
-        candidate = candidate.replace(/\s*[-–]\s*/g, '-');
+        // Gérer aussi les cas où il n'y a pas de tirets mais seulement des espaces
+        candidate = candidate.replace(/\s+/g, ' ').replace(/\s*[-–]?\s*/g, '-').replace(/-+/g, '-');
         const numbers = candidate
           .split('-')
           .filter((n) => n.trim().match(/^\d+$/));
