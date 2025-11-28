@@ -204,24 +204,39 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
             ? href
             : `https://www.turf-fr.com${href}`;
 
-          // Chercher la date dans le conteneur parent
+          // AMÉLIORATION : Chercher la date dans une zone plus large
+          // 1. Chercher dans le conteneur parent
           const $container = $link.closest(
             '.liste_reunions, .archivesCourses, .bloc_archive_liste_mois, div, article, section'
           );
-          const containerText = $container.text();
+          let containerText = $container.text();
+          
+          // 2. Chercher aussi dans les éléments parents et frères
+          const $parent = $link.parent();
+          const $siblings = $parent.siblings();
+          const nearbyText = $parent.text() + ' ' + $siblings.text() + ' ' + containerText;
+          
+          // 3. Chercher dans toute la section de la page (plus large)
+          const $section = $container.closest('section, article, .archive-section, .month-section');
+          const sectionText = $section.length > 0 ? $section.text() : '';
 
           let dateText = '';
           const datePatterns = [
+            /(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\s+(\d{1,2})\s+(janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)\s+(\d{4})/i,
             /(\d{1,2})\s+(janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)\s+(\d{4})/i,
             /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/,
           ];
 
-          for (const pattern of datePatterns) {
-            const match = containerText.match(pattern);
-            if (match) {
-              dateText = match[0];
-              break;
+          // Chercher dans le texte proche d'abord, puis dans le conteneur, puis dans la section
+          for (const text of [nearbyText, containerText, sectionText]) {
+            for (const pattern of datePatterns) {
+              const match = text.match(pattern);
+              if (match) {
+                dateText = match[0];
+                break;
+              }
             }
+            if (dateText) break;
           }
 
           let dateInfo = parseDate(dateText);
@@ -336,9 +351,22 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
             pau: 'Pau',
             ger: 'Ger',
             'ger-gelsenkirchen': 'Ger-Gelsenkirchen',
+            'ger-cologne': 'Ger-Cologne',
             spa: 'Spa',
             'spa-son-pardo': 'Spa-Son Pardo',
             'spa-son': 'Spa-Son Pardo',
+            'saint-malo': 'Saint-Malo',
+            'saint': 'Saint-Malo', // Fallback pour saint-malo
+            'mont-de-marsan': 'Mont-de-Marsan',
+            'mont': 'Mont-de-Marsan', // Fallback pour mont-de-marsan
+            'che-avenches': 'Che Avenches',
+            'che': 'Che Avenches', // Fallback pour che-avenches
+            'gb-goodwood': 'GB-Goodwood',
+            'gb': 'GB-Goodwood', // Fallback pour gb-goodwood
+            'usa-meadowlands': 'USA-Meadowlands',
+            'usa': 'USA-Meadowlands', // Fallback pour usa-meadowlands
+            'hyeres': 'Hyères',
+            'cabourg': 'Cabourg',
           };
 
           const extractedLower = extracted.toLowerCase();
@@ -348,8 +376,32 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
             hippodrome = 'Cagnes Sur Mer';
           } else if (extractedLower.startsWith('spa-son')) {
             hippodrome = 'Spa-Son Pardo';
-          } else if (extractedLower.startsWith('ger-')) {
+          } else if (extractedLower.startsWith('ger-gelsenkirchen')) {
             hippodrome = 'Ger-Gelsenkirchen';
+          } else if (extractedLower.startsWith('ger-cologne')) {
+            hippodrome = 'Ger-Cologne';
+          } else if (extractedLower.startsWith('ger-')) {
+            // Pour ger-*, prendre "Ger-" + le reste capitalisé
+            const gerPart = extractedLower.replace(/^ger-/, '');
+            hippodrome = 'Ger-' + gerPart.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('-');
+          } else if (extractedLower.startsWith('gb-goodwood')) {
+            hippodrome = 'GB-Goodwood';
+          } else if (extractedLower.startsWith('gb-')) {
+            // Pour gb-*, prendre "GB-" + le reste capitalisé
+            const gbPart = extractedLower.replace(/^gb-/, '');
+            hippodrome = 'GB-' + gbPart.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('-');
+          } else if (extractedLower.startsWith('usa-meadowlands')) {
+            hippodrome = 'USA-Meadowlands';
+          } else if (extractedLower.startsWith('usa-')) {
+            // Pour usa-*, prendre "USA-" + le reste capitalisé
+            const usaPart = extractedLower.replace(/^usa-/, '');
+            hippodrome = 'USA-' + usaPart.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('-');
+          } else if (extractedLower.startsWith('saint-malo')) {
+            hippodrome = 'Saint-Malo';
+          } else if (extractedLower.startsWith('mont-de-marsan')) {
+            hippodrome = 'Mont-de-Marsan';
+          } else if (extractedLower.startsWith('che-avenches')) {
+            hippodrome = 'Che Avenches';
           } else {
             // Chercher une correspondance exacte ou partielle (ordre important : plus spécifique d'abord)
             const sortedKeys = Object.keys(knownHippodromes).sort(
@@ -368,35 +420,32 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
             }
           }
 
-          // Si pas trouvé mais que le premier mot n'est pas ignoré, formater
+          // CORRECTION : Si pas trouvé, prendre TOUS les mots (pas seulement le premier)
+          // Exemple: "saint-malo" → "Saint Malo", "che-avenches" → "Che Avenches"
           if (
             !hippodrome &&
             words.length > 0 &&
             !ignoredWords.includes(words[0].toLowerCase())
           ) {
-            const firstWord = words[0].toLowerCase();
-            // Si c'est un hippodrome connu mais pas dans la liste complète
-            if (
-              [
-                'vincennes',
-                'cagnes',
-                'longchamp',
-                'chantilly',
-                'deauville',
-                'auteuil',
-                'enghien',
-                'pau',
-              ].includes(firstWord)
-            ) {
-              // Capitaliser et prendre jusqu'à 2 mots
-              hippodrome = words
-                .slice(0, 2)
-                .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-                .join(' ');
-            } else if (words.length <= 3) {
-              // Si c'est court, c'est peut-être l'hippodrome
-              hippodrome = words
-                .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+            // Filtrer les mots ignorés et les mots qui sont des numéros
+            const validWords = words.filter(
+              (w) =>
+                !ignoredWords.includes(w.toLowerCase()) &&
+                !/^\d+$/.test(w) // Exclure les numéros purs
+            );
+            
+            if (validWords.length > 0) {
+              // Prendre tous les mots valides (pas seulement 2)
+              // Capitaliser chaque mot
+              hippodrome = validWords
+                .map((w) => {
+                  // Gérer les cas spéciaux comme "de", "du", "sur" (minuscules au milieu)
+                  const lower = w.toLowerCase();
+                  if (lower === 'de' || lower === 'du' || lower === 'sur' || lower === 'le' || lower === 'la') {
+                    return lower;
+                  }
+                  return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+                })
                 .join(' ');
             }
           }

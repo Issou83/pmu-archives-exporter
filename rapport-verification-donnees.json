@@ -1,0 +1,410 @@
+{
+  "timestamp": "2025-11-28T16:47:59.098Z",
+  "sampleSize": 10,
+  "totalReunions": 88,
+  "results": [
+    {
+      "url": "https://www.turf-fr.com/partants-programmes/r1-vincennes-38787",
+      "scraped": {
+        "dateISO": "2025-01-01",
+        "dateLabel": "1 Janvier 2025",
+        "hippodrome": "vincennes",
+        "reunionNumber": "1",
+        "countryCode": "FR"
+      },
+      "real": {
+        "url": "https://www.turf-fr.com/partants-programmes/r1-vincennes-38787",
+        "date": "2025-01-01",
+        "hippodrome": "vincennes",
+        "reunionNumber": "1",
+        "arrivalReport": "3-9-12-4",
+        "countryCode": "FR"
+      },
+      "issues": [
+        {
+          "field": "arrivalReport",
+          "scraped": "MANQUANT",
+          "real": "3-9-12-4",
+          "severity": "MEDIUM"
+        }
+      ]
+    },
+    {
+      "url": "https://www.turf-fr.com/partants-programmes/r2-cagnes-sur-mer-38786",
+      "scraped": {
+        "dateISO": "2025-01-01",
+        "dateLabel": "1 Janvier 2025",
+        "hippodrome": "cagnes",
+        "reunionNumber": "2",
+        "countryCode": "FR"
+      },
+      "real": {
+        "url": "https://www.turf-fr.com/partants-programmes/r2-cagnes-sur-mer-38786",
+        "date": "2025-01-01",
+        "hippodrome": "cagnes",
+        "reunionNumber": "2",
+        "arrivalReport": "4-1-5-3-2",
+        "countryCode": "FR"
+      },
+      "issues": [
+        {
+          "field": "arrivalReport",
+          "scraped": "MANQUANT",
+          "real": "4-1-5-3-2",
+          "severity": "MEDIUM"
+        }
+      ]
+    },
+    {
+      "url": "https://www.turf-fr.com/partants-programmes/r3-spa-son-pardo-38788",
+      "scraped": {
+        "dateISO": "2025-01-01",
+        "dateLabel": "1 Janvier 2025",
+        "hippodrome": "spa",
+        "reunionNumber": "3",
+        "countryCode": "FR"
+      },
+      "real": {
+        "url": "https://www.turf-fr.com/partants-programmes/r3-spa-son-pardo-38788",
+        "date": "2025-01-01",
+        "hippodrome": "spa",
+        "reunionNumber": "3",
+        "arrivalReport": "4-10-5-2-8",
+        "countryCode": "FR"
+      },
+      "issues": [
+        {
+          "field": "arrivalReport",
+          "scraped": "MANQUANT",
+          "real": "4-10-5-2-8",
+          "severity": "MEDIUM"
+        }
+      ]
+    },
+    {
+      "url": "https://www.turf-fr.com/partants-programmes/r4-ger-gelsenkirchen-38789",
+      "scraped": {
+        "dateISO": "2025-01-01",
+        "dateLabel": "1 Janvier 2025",
+        "hippodrome": "ger",
+        "reunionNumber": "4",
+        "countryCode": "FR"
+      },
+      "real": {
+        "url": "https://www.turf-fr.com/partants-programmes/r4-ger-gelsenkirchen-38789",
+        "date": "2025-01-01",
+        "hippodrome": "ger",
+        "reunionNumber": "4",
+        "arrivalReport": "3-6-4-5-1",
+        "countryCode": "FR"
+      },
+      "issues": [
+        {
+          "field": "arrivalReport",
+          "scraped": "MANQUANT",
+          "real": "3-6-4-5-1",
+          "severity": "MEDIUM"
+        }
+      ]
+    },
+    {
+      "url": "https://www.turf-fr.com/partants-programmes/r1-pau-38791",
+      "scraped": {
+        "dateISO": "2025-01-01",
+        "dateLabel": "1 Janvier 2025",
+        "hippodrome": "pau",
+        "reunionNumber": "1",
+        "countryCode": "FR"
+      },
+      "real": {
+        "url": "https://www.turf-fr.com/partants-programmes/r1-pau-38791",
+        "date": "2025-01-02",
+        "hippodrome": "pau",
+        "reunionNumber": "1",
+        "arrivalReport": "4-3-1-5-7",
+        "countryCode": "FR"
+      },
+      "issues": [
+        {
+          "field": "date",
+          "scraped": "2025-01-01",
+          "real": "2025-01-02",
+          "severity": "HIGH"
+        },
+        {
+          "field": "arrivalReport",
+          "scraped": "MANQUANT",
+          "real": "4-3-1-5-7",
+          "severity": "MEDIUM"
+        }
+      ]
+    },
+    {
+      "url": "https://www.turf-fr.com/partants-programmes/r2-pontchateau-38790",
+      "scraped": {
+        "dateISO": "2025-01-01",
+        "dateLabel": "1 Janvier 2025",
+        "hippodrome": "pontchateau",
+        "reunionNumber": "2",
+        "countryCode": "FR"
+      },
+      "real": {
+        "url": "https://www.turf-fr.com/partants-programmes/r2-pontchateau-38790",
+        "date": "2025-01-02",
+        "hippodrome": "pontchateau",
+        "reunionNumber": "2",
+        "arrivalReport": "10-9-4-13-3",
+        "countryCode": "FR"
+      },
+      "issues": [
+        {
+          "field": "date",
+          "scraped": "2025-01-01",
+          "real": "2025-01-02",
+          "severity": "HIGH"
+        },
+        {
+          "field": "arrivalReport",
+          "scraped": "MANQUANT",
+          "real": "10-9-4-13-3",
+          "severity": "MEDIUM"
+        }
+      ]
+    },
+    {
+      "url": "https://www.turf-fr.com/partants-programmes/r3-marseille-vivaux-38793",
+      "scraped": {
+        "dateISO": "2025-01-01",
+        "dateLabel": "1 Janvier 2025",
+        "hippodrome": "marseille",
+        "reunionNumber": "3",
+        "countryCode": "FR"
+      },
+      "real": {
+        "url": "https://www.turf-fr.com/partants-programmes/r3-marseille-vivaux-38793",
+        "date": "2025-01-02",
+        "hippodrome": "marseille",
+        "reunionNumber": "3",
+        "arrivalReport": "4-7-6-8-3",
+        "countryCode": "FR"
+      },
+      "issues": [
+        {
+          "field": "date",
+          "scraped": "2025-01-01",
+          "real": "2025-01-02",
+          "severity": "HIGH"
+        },
+        {
+          "field": "arrivalReport",
+          "scraped": "MANQUANT",
+          "real": "4-7-6-8-3",
+          "severity": "MEDIUM"
+        }
+      ]
+    },
+    {
+      "url": "https://www.turf-fr.com/partants-programmes/r4-cabourg-38792",
+      "scraped": {
+        "dateISO": "2025-01-01",
+        "dateLabel": "1 Janvier 2025",
+        "hippodrome": "cabourg",
+        "reunionNumber": "4",
+        "countryCode": "FR"
+      },
+      "real": {
+        "url": "https://www.turf-fr.com/partants-programmes/r4-cabourg-38792",
+        "date": "2025-01-02",
+        "hippodrome": "cabourg",
+        "reunionNumber": "4",
+        "arrivalReport": "2-11-4-12-7",
+        "countryCode": "FR"
+      },
+      "issues": [
+        {
+          "field": "date",
+          "scraped": "2025-01-01",
+          "real": "2025-01-02",
+          "severity": "HIGH"
+        },
+        {
+          "field": "arrivalReport",
+          "scraped": "MANQUANT",
+          "real": "2-11-4-12-7",
+          "severity": "MEDIUM"
+        }
+      ]
+    },
+    {
+      "url": "https://www.turf-fr.com/partants-programmes/r2-mar-casablanca-38804",
+      "scraped": {
+        "dateISO": "2025-01-01",
+        "dateLabel": "1 Janvier 2025",
+        "hippodrome": "mar",
+        "reunionNumber": "2",
+        "countryCode": "FR"
+      },
+      "real": {
+        "url": "https://www.turf-fr.com/partants-programmes/r2-mar-casablanca-38804",
+        "date": "2025-01-03",
+        "hippodrome": "mar",
+        "reunionNumber": "2",
+        "arrivalReport": "9-4-7-8-10",
+        "countryCode": "FR"
+      },
+      "issues": [
+        {
+          "field": "date",
+          "scraped": "2025-01-01",
+          "real": "2025-01-03",
+          "severity": "HIGH"
+        },
+        {
+          "field": "arrivalReport",
+          "scraped": "MANQUANT",
+          "real": "9-4-7-8-10",
+          "severity": "MEDIUM"
+        }
+      ]
+    },
+    {
+      "url": "https://www.turf-fr.com/partants-programmes/r3-cagnes-sur-mer-38795",
+      "scraped": {
+        "dateISO": "2025-01-01",
+        "dateLabel": "1 Janvier 2025",
+        "hippodrome": "cagnes",
+        "reunionNumber": "3",
+        "countryCode": "FR"
+      },
+      "real": {
+        "url": "https://www.turf-fr.com/partants-programmes/r3-cagnes-sur-mer-38795",
+        "date": "2025-01-03",
+        "hippodrome": "cagnes",
+        "reunionNumber": "3",
+        "arrivalReport": "16-2-7-10-8",
+        "countryCode": "FR"
+      },
+      "issues": [
+        {
+          "field": "date",
+          "scraped": "2025-01-01",
+          "real": "2025-01-03",
+          "severity": "HIGH"
+        },
+        {
+          "field": "arrivalReport",
+          "scraped": "MANQUANT",
+          "real": "16-2-7-10-8",
+          "severity": "MEDIUM"
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "totalIssues": 16,
+    "highIssues": 6,
+    "mediumIssues": 10,
+    "issuesByField": {
+      "arrivalReport": [
+        {
+          "field": "arrivalReport",
+          "scraped": "MANQUANT",
+          "real": "3-9-12-4",
+          "severity": "MEDIUM"
+        },
+        {
+          "field": "arrivalReport",
+          "scraped": "MANQUANT",
+          "real": "4-1-5-3-2",
+          "severity": "MEDIUM"
+        },
+        {
+          "field": "arrivalReport",
+          "scraped": "MANQUANT",
+          "real": "4-10-5-2-8",
+          "severity": "MEDIUM"
+        },
+        {
+          "field": "arrivalReport",
+          "scraped": "MANQUANT",
+          "real": "3-6-4-5-1",
+          "severity": "MEDIUM"
+        },
+        {
+          "field": "arrivalReport",
+          "scraped": "MANQUANT",
+          "real": "4-3-1-5-7",
+          "severity": "MEDIUM"
+        },
+        {
+          "field": "arrivalReport",
+          "scraped": "MANQUANT",
+          "real": "10-9-4-13-3",
+          "severity": "MEDIUM"
+        },
+        {
+          "field": "arrivalReport",
+          "scraped": "MANQUANT",
+          "real": "4-7-6-8-3",
+          "severity": "MEDIUM"
+        },
+        {
+          "field": "arrivalReport",
+          "scraped": "MANQUANT",
+          "real": "2-11-4-12-7",
+          "severity": "MEDIUM"
+        },
+        {
+          "field": "arrivalReport",
+          "scraped": "MANQUANT",
+          "real": "9-4-7-8-10",
+          "severity": "MEDIUM"
+        },
+        {
+          "field": "arrivalReport",
+          "scraped": "MANQUANT",
+          "real": "16-2-7-10-8",
+          "severity": "MEDIUM"
+        }
+      ],
+      "date": [
+        {
+          "field": "date",
+          "scraped": "2025-01-01",
+          "real": "2025-01-02",
+          "severity": "HIGH"
+        },
+        {
+          "field": "date",
+          "scraped": "2025-01-01",
+          "real": "2025-01-02",
+          "severity": "HIGH"
+        },
+        {
+          "field": "date",
+          "scraped": "2025-01-01",
+          "real": "2025-01-02",
+          "severity": "HIGH"
+        },
+        {
+          "field": "date",
+          "scraped": "2025-01-01",
+          "real": "2025-01-02",
+          "severity": "HIGH"
+        },
+        {
+          "field": "date",
+          "scraped": "2025-01-01",
+          "real": "2025-01-03",
+          "severity": "HIGH"
+        },
+        {
+          "field": "date",
+          "scraped": "2025-01-01",
+          "real": "2025-01-03",
+          "severity": "HIGH"
+        }
+      ]
+    }
+  }
+}
