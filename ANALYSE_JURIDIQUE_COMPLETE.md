@@ -237,10 +237,18 @@ Le projet **PMU Archives Exporter** présente **plusieurs risques juridiques sig
    - Vérifier s'il existe une interdiction explicite du scraping
    - Documenter cette vérification
 
-2. **Vérifier robots.txt**
-   - Accéder à https://www.turf-fr.com/robots.txt
-   - Respecter les directives
-   - Implémenter le respect automatique dans le code
+2. **✅ Vérifier robots.txt** - **FAIT**
+   - **Résultat de la vérification (28/11/2025) :**
+     ```
+     User-agent: *
+     Disallow: /outils/partitions-combinaisons/
+     Disallow: /membre/standard/
+     Disallow: /concours/fiche-stats/
+     Disallow: /messagerie
+     ```
+   - **✅ BONNE NOUVELLE :** Le robots.txt **AUTORISE** le scraping des pages d'archives
+   - **⚠️ ATTENTION :** Certaines sections sont interdites (outils, membre, concours, messagerie)
+   - **✅ RECOMMANDATION :** Implémenter le respect automatique de robots.txt dans le code
 
 3. **Obtenir une autorisation écrite**
    - Contacter le propriétaire de turf-fr.com
