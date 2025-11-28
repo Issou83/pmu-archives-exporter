@@ -79,6 +79,15 @@ export function FiltersPanel({ filters, onFiltersChange, onSearch }) {
   };
 
   const handleSearch = () => {
+    // Vérifier si la requête risque de timeout
+    const totalMonths = (localFilters.years?.length || 0) * (localFilters.months?.length || 0);
+    if (totalMonths > 4) {
+      const confirmMessage = `Vous avez sélectionné ${totalMonths} combinaisons mois/année. Cette requête peut prendre plus de 60 secondes et risque de timeout.\n\nSouhaitez-vous continuer ? (Les rapports d'arrivée seront désactivés pour cette requête)`;
+      if (!window.confirm(confirmMessage)) {
+        return;
+      }
+    }
+    
     onFiltersChange(localFilters);
     setTimeout(() => {
       if (onSearch) {
