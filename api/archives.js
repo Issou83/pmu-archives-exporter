@@ -211,28 +211,25 @@ export default async function handler(req, res) {
         // OPTIMISATION : Injecter le cache des rapports d'arrivée dans le scraper
         setArrivalReportsCache(arrivalReportsCache, ARRIVAL_REPORTS_CACHE_TTL);
         
-        // CORRECTION : Réactiver les rapports d'arrivée avec une logique plus intelligente
-        // Le timeout global de 50s protège contre les timeouts, donc on peut activer les rapports
-        // mais on limite pour les requêtes très larges
+        // CORRECTION : Réactiver les rapports d'arrivée avec une logique équilibrée
+        // Le timeout global de 50s protège, mais on limite pour éviter les timeouts
         const totalMonths = years.length * months.length;
         
         // Activer les rapports d'arrivée si :
-        // 1. Moins de 3 combinaisons mois/année (1-2 mois = toujours activé)
-        // 2. OU si c'est une requête filtrée (hippodromes, dates, etc.) qui réduit le nombre de réunions
-        const hasFilters = (filters.hippodromes?.length > 0 || 
-                           filters.reunionNumbers?.length > 0 || 
-                           filters.countries?.length > 0 ||
-                           filters.dateFrom || 
-                           filters.dateTo ||
-                           filters.textQuery);
+        // 1. Exactement 1 mois (le plus sûr)
+        // 2. OU 2 mois avec des filtres spécifiques (hippodromes, réunions, dates) qui réduisent le nombre de réunions
+        const hasSpecificFilters = (filters.hippodromes?.length > 0 || 
+                                   filters.reunionNumbers?.length > 0 || 
+                                   filters.dateFrom || 
+                                   filters.dateTo);
         
-        // Activer si peu de mois OU si filtres appliqués (réduit le nombre de réunions à scraper)
-        const includeArrivalReports = totalMonths <= 2 || (totalMonths <= 4 && hasFilters);
+        // Activer seulement pour 1 mois, ou 2 mois avec filtres très spécifiques
+        const includeArrivalReports = totalMonths === 1 || (totalMonths === 2 && hasSpecificFilters);
         
         if (!includeArrivalReports) {
-          console.log(`[API] Rapports d'arrivée désactivés (${totalMonths} mois, filtres: ${hasFilters}) pour éviter timeout`);
+          console.log(`[API] Rapports d'arrivée désactivés (${totalMonths} mois, filtres spécifiques: ${hasSpecificFilters}) pour éviter timeout`);
         } else {
-          console.log(`[API] Rapports d'arrivée activés (${totalMonths} mois, filtres: ${hasFilters})`);
+          console.log(`[API] Rapports d'arrivée activés (${totalMonths} mois, filtres spécifiques: ${hasSpecificFilters})`);
         }
         
         // CORRECTION TIMEOUT : Ajouter un timeout global de 50 secondes pour laisser une marge
