@@ -141,6 +141,107 @@ function parseDate(dateText) {
 }
 
 /**
+ * Scrape l'hippodrome depuis la page individuelle d'une réunion
+ * @param {string} reunionUrl - URL de la réunion
+ * @param {Object} robotsRules - Règles robots.txt (optionnel)
+ */
+async function scrapeHippodromeFromReunionPage(reunionUrl, robotsRules = null) {
+  if (!reunionUrl) return null;
+
+  try {
+    // Vérifier robots.txt si disponible
+    if (robotsRules) {
+      const allowed = isUrlAllowed(robotsRules, reunionUrl, '*');
+      if (!allowed) {
+        return null;
+      }
+    }
+
+    // OPTIMISATION : Timeout réduit à 2 secondes
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2000);
+
+    let response;
+    try {
+      response = await fetch(reunionUrl, {
+        signal: controller.signal,
+        headers: {
+          'User-Agent':
+            'PMU-Archives-Exporter/1.0 (Educational/Research Project; Contact: voir README)',
+          Accept:
+            'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'Accept-Language': 'fr-FR,fr;q=0.9,en;q=0.8',
+          Referer: 'https://www.turf-fr.com/',
+        },
+      });
+      clearTimeout(timeoutId);
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        return null; // Timeout silencieux
+      }
+      return null;
+    }
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const html = await response.text();
+    const $ = cheerio.load(html);
+
+    // PRIORITÉ 1 : Chercher dans le H1 (le plus fiable)
+    const $h1 = $('h1');
+    if ($h1.length > 0) {
+      const h1Text = $h1.first().text();
+      // Patterns pour extraire l'hippodrome depuis H1
+      // Ex: "Partants PMU du lundi 01 janvier 2024 à VINCENNES"
+      const h1Match = h1Text.match(/à\s+([A-ZÀ-Ÿ][A-ZÀ-Ÿ\s\-]+?)(?:\s|$|,|\.)/i);
+      if (h1Match) {
+        const extracted = h1Match[1].trim();
+        // Vérifier si c'est un hippodrome connu
+        const knownHippodromes = [
+          'VINCENNES', 'CAGNES', 'LONGCHAMP', 'CHANTILLY', 'DEAUVILLE',
+          'AUTEUIL', 'ENGHIEN', 'PAU', 'SAINT-MALO', 'MONT-DE-MARSAN',
+          'HYERES', 'CABOURG', 'VINCENNES', 'CAGNES SUR MER',
+        ];
+        for (const h of knownHippodromes) {
+          if (extracted.toUpperCase().includes(h)) {
+            // Normaliser la casse
+            if (h === 'CAGNES SUR MER') return 'Cagnes Sur Mer';
+            if (h === 'SAINT-MALO') return 'Saint-Malo';
+            if (h === 'MONT-DE-MARSAN') return 'Mont-de-Marsan';
+            return h.charAt(0) + h.slice(1).toLowerCase();
+          }
+        }
+        // Si pas dans la liste mais semble valide (plus de 3 caractères, pas de "prix")
+        if (extracted.length > 3 && !extracted.toLowerCase().includes('prix')) {
+          return extracted;
+        }
+      }
+    }
+
+    // PRIORITÉ 2 : Chercher dans le title
+    const $title = $('title');
+    if ($title.length > 0) {
+      const titleText = $title.text();
+      // Ex: "Réunion PMU Vincennes 2024"
+      const titleMatch = titleText.match(/PMU\s+([A-ZÀ-Ÿ][A-ZÀ-Ÿ\s\-]+?)(?:\s+\d{4}|$)/i);
+      if (titleMatch) {
+        const extracted = titleMatch[1].trim();
+        if (extracted.length > 3 && !extracted.toLowerCase().includes('prix')) {
+          return extracted;
+        }
+      }
+    }
+
+    return null;
+  } catch (error) {
+    return null;
+  }
+}
+
+/**
  * Scrape la date depuis la page individuelle d'une réunion
  * @param {string} reunionUrl - URL de la réunion
  * @param {Object} robotsRules - Règles robots.txt (optionnel)
