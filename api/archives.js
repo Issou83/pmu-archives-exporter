@@ -232,14 +232,15 @@ export default async function handler(req, res) {
           console.log(`[API] Rapports d'arrivée activés (${totalMonths} mois, filtres spécifiques: ${hasSpecificFilters})`);
         }
         
-        // CORRECTION TIMEOUT : Ajouter un timeout global de 50 secondes pour laisser une marge
-        // Vercel a une limite de 60 secondes, on s'arrête à 50 pour éviter le timeout
-        const SCRAPING_TIMEOUT = 50000; // 50 secondes
+        // CORRECTION TIMEOUT : Ajouter un timeout global de 55 secondes pour laisser une marge
+        // Vercel a une limite de 60 secondes, on s'arrête à 55 pour éviter le timeout
+        // Augmenté de 50s à 55s pour permettre le scraping des rapports d'arrivée
+        const SCRAPING_TIMEOUT = 55000; // 55 secondes
         
         const scrapingPromise = scrapeTurfFrArchives(years, months, includeArrivalReports);
         const timeoutPromise = new Promise((_, reject) => {
           setTimeout(() => {
-            reject(new Error('Scraping timeout: Le scraping prend trop de temps (>50s). Réduisez le nombre de mois ou d\'années.'));
+            reject(new Error('Scraping timeout: Le scraping prend trop de temps (>55s). Réduisez le nombre de mois ou d\'années.'));
           }, SCRAPING_TIMEOUT);
         });
         
@@ -254,7 +255,7 @@ export default async function handler(req, res) {
             return res.status(504).json({
               error: {
                 code: '504',
-                message: 'Le scraping prend trop de temps (>50s). Essayez de réduire le nombre de mois ou d\'années sélectionnés, ou utilisez des filtres plus spécifiques (hippodromes, dates).',
+                message: 'Le scraping prend trop de temps (>55s). Essayez de réduire le nombre de mois ou d\'années sélectionnés, ou utilisez des filtres plus spécifiques (hippodromes, dates).',
               },
             });
           }
