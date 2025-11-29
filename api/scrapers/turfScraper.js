@@ -349,8 +349,11 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
       );
 
       // Vérifier si le texte contient un pattern de réunion (R1, R2, etc.)
+      // CORRECTION : Ajouter "VOIR CETTE REUNION" qui est le texte standard des liens
       const hasReunionPattern =
-        /R\d+/i.test(linkText) || /réunion\s*\d+/i.test(linkText);
+        /R\d+/i.test(linkText) || 
+        /réunion\s*\d+/i.test(linkText) ||
+        /voir\s+cette\s+réunion/i.test(linkText);
 
       if (isReunionUrl || hasReunionPattern) {
         processedUrls.add(href);
