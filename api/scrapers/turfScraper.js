@@ -364,13 +364,15 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
           linkText.match(/R(\d+)[\s\-]+(.+)/i) ||
           linkText.match(/(.+)[\s\-]+R(\d+)/i);
 
-        if (urlMatch || textMatch) {
+        // CORRECTION : Accepter aussi si l'URL correspond au pattern même sans textMatch
+        // (pour les liens "VOIR CETTE REUNION" qui n'ont pas de pattern dans le texte)
+        if (urlMatch || textMatch || isReunionUrl) {
           foundLinks++;
           const reunionNumber = urlMatch
             ? urlMatch[1]
             : textMatch
               ? textMatch[1] || textMatch[2]
-              : '1';
+              : (isReunionUrl ? (href.match(/r(\d+)[\-_]/i)?.[1] || '1') : '1');
           const hippodromeFromUrl = urlMatch
             ? urlMatch[2].replace(/[-_]/g, ' ')
             : '';
