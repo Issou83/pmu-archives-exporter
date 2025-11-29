@@ -330,6 +330,40 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
     const reunions = [];
 
     console.log(`[Scraper] HTML reçu, longueur: ${html.length} caractères`);
+    
+    // DEBUG : Vérifier si les conteneurs existent
+    const $reunionContainers = $(
+      '.liste_reunions, .archivesCourses, .bloc_archive_liste_mois, [class*="reunion"], [class*="archive"]'
+    );
+    console.log(`[Scraper] DEBUG: Conteneurs trouvés: ${$reunionContainers.length}`);
+    
+    // DEBUG : Vérifier si les liens existent
+    const allLinks = $('a').toArray();
+    console.log(`[Scraper] DEBUG: Total liens sur la page: ${allLinks.length}`);
+    
+    // DEBUG : Vérifier les patterns
+    const reunionUrlPatterns = [
+      /\/courses-pmu\/(arrivees-rapports|partants|pronostics)\/r\d+/i,
+      /\/partants-programmes\/r\d+/i,
+      /\/courses-pmu\/.*\/r\d+/i,
+      /(?:https?:\/\/)?(?:www\.)?turf-fr\.com\/partants-programmes\/r\d+/i,
+      /(?:https?:\/\/)?(?:www\.)?turf-fr\.com\/courses-pmu\/.*\/r\d+/i,
+    ];
+    let patternMatches = 0;
+    for (const elem of allLinks) {
+      const $link = $(elem);
+      const href = $link.attr('href');
+      if (href) {
+        const isReunionUrl = reunionUrlPatterns.some((pattern) => pattern.test(href));
+        if (isReunionUrl) {
+          patternMatches++;
+          if (patternMatches <= 3) {
+            console.log(`[Scraper] DEBUG: Lien matché ${patternMatches}: ${href}`);
+          }
+        }
+      }
+    }
+    console.log(`[Scraper] DEBUG: Liens matchant les patterns: ${patternMatches}`);
 
     // Méthode 1 : Chercher les liens vers les réunions
     // Patterns détectés : /courses-pmu/arrivees-rapports/r1-... ou /partants-programmes/r1-...
