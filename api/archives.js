@@ -241,7 +241,7 @@ export default async function handler(req, res) {
         const scrapingPromise = scrapeTurfFrArchives(years, months, includeArrivalReports);
         const timeoutPromise = new Promise((_, reject) => {
           setTimeout(() => {
-            reject(new Error('Scraping timeout: Le scraping prend trop de temps (>58s). Réduisez le nombre de mois ou d\'années.'));
+            reject(new Error('Scraping timeout: Le scraping prend trop de temps (>57s). Réduisez le nombre de mois ou d\'années.'));
           }, SCRAPING_TIMEOUT);
         });
         
@@ -256,7 +256,7 @@ export default async function handler(req, res) {
             return res.status(504).json({
               error: {
                 code: '504',
-                message: 'Le scraping prend trop de temps (>58s). Essayez de réduire le nombre de mois ou d\'années sélectionnés, ou utilisez des filtres plus spécifiques (hippodromes, dates).',
+                message: 'Le scraping prend trop de temps (>57s). Essayez de réduire le nombre de mois ou d\'années sélectionnés, ou utilisez des filtres plus spécifiques (hippodromes, dates).',
               },
             });
           }
