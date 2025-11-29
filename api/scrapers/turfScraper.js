@@ -1277,8 +1277,8 @@ export async function scrapeTurfFrArchives(
     console.log(`[Scraper] Début scraping des rapports d'arrivée...`);
     // OPTIMISATION : Batch size adaptatif selon le crawl-delay
     // Plus le crawl-delay est court, plus on peut traiter en parallèle
-    // Réduit encore plus pour éviter les timeouts avec beaucoup de réunions
-    const adaptiveBatchSize = crawlDelay < 1000 ? 12 : crawlDelay < 2000 ? 8 : 6;
+    // Augmenté pour scraper plus de réunions rapidement
+    const adaptiveBatchSize = crawlDelay < 1000 ? 15 : crawlDelay < 2000 ? 10 : 8;
     const BATCH_SIZE = adaptiveBatchSize;
     console.log(`[Scraper] Batch size: ${BATCH_SIZE} (crawl-delay: ${crawlDelay}ms)`);
     
