@@ -460,6 +460,10 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
   // OPTIMISATION : Réduire à 5 pour éviter les timeouts (5 * 2s = 10s max pour dates)
   const MAX_DATES_FROM_PAGES = 5; // Limite pour éviter les timeouts
   let datesScrapedFromPages = 0; // Compteur pour limiter le scraping depuis pages individuelles
+  
+  // OPTIMISATION : Limiter aussi le nombre de requêtes pour les hippodromes depuis pages individuelles
+  const MAX_HIPPODROMES_FROM_PAGES = 3; // Limite pour éviter les timeouts (3 * 2s = 6s max)
+  let hippodromesScrapedFromPages = 0; // Compteur pour limiter le scraping depuis pages individuelles
 
   try {
     // OPTIMISATION TIMEOUT : Timeout de 10 secondes pour la page d'archives (au lieu de pas de timeout)
@@ -645,10 +649,12 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
 
           // AMÉLIORATION : Si toujours pas trouvé et que l'URL contient un prix,
           // essayer de scraper l'hippodrome depuis la page individuelle
-          if ((!hippodrome || hippodrome.length < 2) && fullUrl) {
+          // OPTIMISATION : Limiter le nombre de requêtes pour éviter les timeouts
+          if ((!hippodrome || hippodrome.length < 2) && fullUrl && hippodromesScrapedFromPages < MAX_HIPPODROMES_FROM_PAGES) {
             // Vérifier si l'URL contient un prix (indique que l'hippodrome n'est pas dans l'URL)
             const hasPriceInUrl = /prix[-\s]/i.test(href);
             if (hasPriceInUrl) {
+              hippodromesScrapedFromPages++;
               try {
                 const hippoFromPage = await scrapeHippodromeFromReunionPage(
                   fullUrl,
@@ -1101,10 +1107,12 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
 
         // AMÉLIORATION : Si toujours pas trouvé et que l'URL contient un prix,
         // essayer de scraper l'hippodrome depuis la page individuelle
-        if ((!hippodrome || hippodrome.length < 2) && fullUrl) {
+        // OPTIMISATION : Limiter le nombre de requêtes pour éviter les timeouts
+        if ((!hippodrome || hippodrome.length < 2) && fullUrl && hippodromesScrapedFromPages < MAX_HIPPODROMES_FROM_PAGES) {
           // Vérifier si l'URL contient un prix (indique que l'hippodrome n'est pas dans l'URL)
           const hasPriceInUrl = /prix[-\s]/i.test(href);
           if (hasPriceInUrl) {
+            hippodromesScrapedFromPages++;
             try {
               const hippoFromPage = await scrapeHippodromeFromReunionPage(
                 fullUrl,
