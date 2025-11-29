@@ -120,16 +120,32 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
   }
 
   try {
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent':
-          'PMU-Archives-Exporter/1.0 (Educational/Research Project; Contact: voir README)',
-        Accept:
-          'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-        'Accept-Language': 'fr-FR,fr;q=0.9,en;q=0.8',
-        Referer: 'https://www.turf-fr.com/',
-      },
-    });
+    // OPTIMISATION TIMEOUT : Timeout de 10 secondes pour la page d'archives (au lieu de pas de timeout)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 secondes max
+    
+    let response;
+    try {
+      response = await fetch(url, {
+        signal: controller.signal,
+        headers: {
+          'User-Agent':
+            'PMU-Archives-Exporter/1.0 (Educational/Research Project; Contact: voir README)',
+          Accept:
+            'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'Accept-Language': 'fr-FR,fr;q=0.9,en;q=0.8',
+          Referer: 'https://www.turf-fr.com/',
+        },
+      });
+      clearTimeout(timeoutId);
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        console.error(`[Scraper] Timeout (10s) pour ${url}`);
+        throw new Error(`Timeout lors du chargement de la page d'archives: ${url}`);
+      }
+      throw error;
+    }
 
     if (!response.ok) {
       console.error(`[Scraper] HTTP ${response.status} pour ${url}`);
@@ -1197,10 +1213,22 @@ export async function scrapeTurfFrArchives(
   );
 
   // ✅ RESPECT DE ROBOTS.TXT - Charger les règles au début
+  // OPTIMISATION TIMEOUT : Timeout de 5 secondes pour robots.txt
   console.log(`[Scraper] Chargement de robots.txt...`);
-  const robotsRules = await fetchRobotsTxt('https://www.turf-fr.com');
-  const crawlDelay = getCrawlDelay(robotsRules, '*');
-  console.log(`[Scraper] Crawl-delay recommandé: ${crawlDelay}ms`);
+  let robotsRules = null;
+  let crawlDelay = 400; // Délai par défaut si robots.txt échoue
+  
+  try {
+    const robotsPromise = fetchRobotsTxt('https://www.turf-fr.com');
+    const robotsTimeout = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('robots.txt timeout')), 5000);
+    });
+    robotsRules = await Promise.race([robotsPromise, robotsTimeout]);
+    crawlDelay = getCrawlDelay(robotsRules, '*');
+    console.log(`[Scraper] Crawl-delay recommandé: ${crawlDelay}ms`);
+  } catch (error) {
+    console.warn(`[Scraper] Impossible de charger robots.txt (timeout ou erreur), utilisation du délai par défaut: ${crawlDelay}ms`);
+  }
 
   const allReunions = [];
 

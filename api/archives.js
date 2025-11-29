@@ -211,19 +211,51 @@ export default async function handler(req, res) {
         // OPTIMISATION : Injecter le cache des rapports d'arrivée dans le scraper
         setArrivalReportsCache(arrivalReportsCache, ARRIVAL_REPORTS_CACHE_TTL);
         
-        // Optimisation : désactiver les rapports d'arrivée si trop de mois/années
-        // pour éviter les timeouts (les rapports peuvent être récupérés plus tard)
+        // CORRECTION TIMEOUT : Désactiver les rapports d'arrivée par défaut pour éviter les timeouts
+        // Le scraping des rapports peut prendre beaucoup de temps même pour 1 mois
+        // Les utilisateurs peuvent les récupérer plus tard via une requête spécifique
         const totalMonths = years.length * months.length;
-        const includeArrivalReports = totalMonths <= 4; // Max 4 combinaisons mois/année
+        
+        // Désactiver si :
+        // 1. Plus de 2 combinaisons mois/année (au lieu de 4)
+        // 2. OU si c'est un mois récent (2025) qui peut avoir beaucoup de réunions
+        const isRecentYear = years.some(y => parseInt(y) >= 2024);
+        const includeArrivalReports = totalMonths <= 2 && !isRecentYear;
         
         if (!includeArrivalReports) {
-          console.log(`[API] Trop de mois/années (${totalMonths}), désactivation des rapports d'arrivée pour éviter timeout`);
+          console.log(`[API] Rapports d'arrivée désactivés (${totalMonths} mois, année récente: ${isRecentYear}) pour éviter timeout`);
+        } else {
+          console.log(`[API] Rapports d'arrivée activés (${totalMonths} mois)`);
         }
         
-        reunions = await scrapeTurfFrArchives(years, months, includeArrivalReports);
-        console.log(
-          `[API] Scraping terminé: ${reunions.length} réunions trouvées`
-        );
+        // CORRECTION TIMEOUT : Ajouter un timeout global de 50 secondes pour laisser une marge
+        // Vercel a une limite de 60 secondes, on s'arrête à 50 pour éviter le timeout
+        const SCRAPING_TIMEOUT = 50000; // 50 secondes
+        
+        const scrapingPromise = scrapeTurfFrArchives(years, months, includeArrivalReports);
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => {
+            reject(new Error('Scraping timeout: Le scraping prend trop de temps (>50s). Réduisez le nombre de mois ou d\'années.'));
+          }, SCRAPING_TIMEOUT);
+        });
+        
+        try {
+          reunions = await Promise.race([scrapingPromise, timeoutPromise]);
+          console.log(
+            `[API] Scraping terminé: ${reunions.length} réunions trouvées`
+          );
+        } catch (timeoutError) {
+          if (timeoutError.message.includes('timeout')) {
+            console.error(`[API] Timeout après ${SCRAPING_TIMEOUT}ms`);
+            return res.status(504).json({
+              error: {
+                code: '504',
+                message: 'Le scraping prend trop de temps (>50s). Essayez de réduire le nombre de mois ou d\'années sélectionnés, ou utilisez des filtres plus spécifiques (hippodromes, dates).',
+              },
+            });
+          }
+          throw timeoutError;
+        }
       } catch (scrapeError) {
         console.error(`[API] Erreur lors du scraping:`, scrapeError);
         // Si c'est un timeout, retourner une erreur plus claire
