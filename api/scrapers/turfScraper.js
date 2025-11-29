@@ -191,6 +191,7 @@ async function scrapeDateFromReunionPage(reunionUrl, robotsRules = null) {
     const $ = cheerio.load(html);
 
     // Chercher la date dans différents endroits de la page
+    // OPTIMISATION : Prioriser les éléments les plus fiables (H1, title) pour éviter les dates incorrectes
     let dateText = '';
     const datePatterns = [
       /(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\s+(\d{1,2})\s+(janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)\s+(\d{4})/i,
@@ -198,32 +199,17 @@ async function scrapeDateFromReunionPage(reunionUrl, robotsRules = null) {
       /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/,
     ];
 
-    // PRIORITÉ 1 : Chercher dans les éléments avec classe/ID contenant "date"
-    const dateSelectors = [
-      '[class*="date"]',
-      '[id*="date"]',
-      '.date',
-      '#date',
-      '[class*="jour"]',
-      '[id*="jour"]',
-    ];
-
-    for (const selector of dateSelectors) {
-      const $elements = $(selector);
-      $elements.each((i, elem) => {
-        if (dateText) return false;
-        const $elem = $(elem);
-        const text = $elem.text();
-
-        for (const pattern of datePatterns) {
-          const match = text.match(pattern);
-          if (match) {
-            dateText = match[0];
-            return false;
-          }
+    // PRIORITÉ 1 : Chercher dans le H1 (le plus fiable, contient généralement la date de la réunion)
+    const $h1 = $('h1');
+    if ($h1.length > 0) {
+      const h1Text = $h1.first().text();
+      for (const pattern of datePatterns) {
+        const match = h1Text.match(pattern);
+        if (match) {
+          dateText = match[0];
+          break;
         }
-      });
-      if (dateText) break;
+      }
     }
 
     // PRIORITÉ 2 : Chercher dans le titre de la page
@@ -241,21 +227,85 @@ async function scrapeDateFromReunionPage(reunionUrl, robotsRules = null) {
       }
     }
 
-    // PRIORITÉ 3 : Chercher dans le body
+    // PRIORITÉ 3 : Chercher dans les éléments avec classe/ID contenant "date" (mais filtrer les dates récentes)
+    // Éviter les dates trop anciennes (avant 2020) qui peuvent être dans des widgets
+    if (!dateText) {
+      const dateSelectors = [
+        '[class*="date"]',
+        '[id*="date"]',
+        '.date',
+        '#date',
+        '[class*="jour"]',
+        '[id*="jour"]',
+      ];
+
+      for (const selector of dateSelectors) {
+        const $elements = $(selector);
+        $elements.each((i, elem) => {
+          if (dateText) return false;
+          const $elem = $(elem);
+          const text = $elem.text();
+
+          for (const pattern of datePatterns) {
+            const match = text.match(pattern);
+            if (match) {
+              // Vérifier que la date est récente (après 2020) pour éviter les dates de widgets
+              const yearMatch = match[0].match(/(\d{4})/);
+              if (yearMatch) {
+                const year = parseInt(yearMatch[1]);
+                if (year >= 2020 && year <= 2025) {
+                  dateText = match[0];
+                  return false;
+                }
+              }
+            }
+          }
+        });
+        if (dateText) break;
+      }
+    }
+
+    // PRIORITÉ 4 : Chercher dans le body (en dernier recours)
     if (!dateText) {
       const bodyText = $('body').text();
+      // Chercher toutes les dates et prendre la plus récente
+      const allDates = [];
       for (const pattern of datePatterns) {
-        const match = bodyText.match(pattern);
-        if (match) {
-          dateText = match[0];
-          break;
+        const matches = bodyText.match(new RegExp(pattern.source, 'gi'));
+        if (matches) {
+          matches.forEach((match) => {
+            const yearMatch = match.match(/(\d{4})/);
+            if (yearMatch) {
+              const year = parseInt(yearMatch[1]);
+              if (year >= 2020 && year <= 2025) {
+                allDates.push({ text: match, year });
+              }
+            }
+          });
         }
+      }
+      // Prendre la date la plus récente
+      if (allDates.length > 0) {
+        allDates.sort((a, b) => b.year - a.year);
+        dateText = allDates[0].text;
       }
     }
 
     // Parser la date trouvée
     if (dateText) {
-      return parseDate(dateText);
+      const parsedDate = parseDate(dateText);
+      // VALIDATION : Vérifier que la date est raisonnable (entre 2020 et 2025)
+      // pour éviter les dates de widgets ou d'anciennes pages
+      if (parsedDate) {
+        const year = parsedDate.year;
+        if (year >= 2020 && year <= 2025) {
+          return parsedDate;
+        } else {
+          console.log(
+            `[Scraper] Date rejetée (hors plage 2020-2025): ${dateText} (année: ${year})`
+          );
+        }
+      }
     }
 
     return null;
@@ -437,12 +487,53 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
           const hippodromeFromText = textMatch
             ? (textMatch[2] || textMatch[1]).trim()
             : '';
-          const hippodrome =
-            hippodromeFromText || hippodromeFromUrl || 'Inconnu';
-
+          
+          // AMÉLIORATION : Améliorer l'extraction de l'hippodrome depuis l'URL
+          let hippodrome = hippodromeFromText || hippodromeFromUrl;
+          
           const fullUrl = href.startsWith('http')
             ? href
             : `https://www.turf-fr.com${href}`;
+          
+          // Si on a un hippodrome depuis l'URL mais qu'il est incomplet, essayer de l'améliorer
+          if ((!hippodrome || hippodrome.length < 10) && hippodromeFromUrl) {
+            // Chercher dans le contexte de la page pour compléter
+            const $container = $link.closest(
+              '.liste_reunions, .archivesCourses, .bloc_archive_liste_mois, div, article, section'
+            );
+            const containerText = $container.text();
+            
+            // Hippodromes connus avec variations
+            const hippodromes = [
+              { pattern: /cagnes\s+sur\s+mer/i, name: 'Cagnes Sur Mer' },
+              { pattern: /vincennes/i, name: 'Vincennes' },
+              { pattern: /longchamp/i, name: 'Longchamp' },
+              { pattern: /chantilly/i, name: 'Chantilly' },
+              { pattern: /deauville/i, name: 'Deauville' },
+              { pattern: /auteuil/i, name: 'Auteuil' },
+              { pattern: /enghien/i, name: 'Enghien' },
+              { pattern: /pau/i, name: 'Pau' },
+              { pattern: /saint[-\s]?malo/i, name: 'Saint-Malo' },
+              { pattern: /mont[-\s]?de[-\s]?marsan/i, name: 'Mont-de-Marsan' },
+              { pattern: /ger[-\s]?gelsenkirchen/i, name: 'Ger-Gelsenkirchen' },
+              { pattern: /spa[-\s]?son[-\s]?pardo/i, name: 'Spa-Son Pardo' },
+            ];
+            
+            for (const h of hippodromes) {
+              if (h.pattern.test(containerText)) {
+                hippodrome = h.name;
+                break;
+              }
+            }
+          }
+          
+          // Si toujours pas trouvé, utiliser "Inconnu" mais avec un log
+          if (!hippodrome || hippodrome.length < 2) {
+            console.log(
+              `[Scraper] Hippodrome non trouvé pour ${fullUrl}, URL: "${hippodromeFromUrl}", Texte: "${hippodromeFromText}"`
+            );
+            hippodrome = 'Inconnu';
+          }
 
           // AMÉLIORATION : Chercher la date dans une zone plus large
           // 1. Chercher dans le conteneur parent
@@ -498,10 +589,24 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
                 robotsRules
               );
               if (dateFromPage) {
-                dateInfo = dateFromPage;
-                console.log(
-                  `[Scraper] Date trouvée sur page individuelle: ${dateInfo.dateISO}`
-                );
+                // VALIDATION : Vérifier que la date correspond à l'année et au mois attendus
+                const expectedYear = parseInt(year);
+                const monthIndex = MONTHS.findIndex((m) => m.slug === monthSlug);
+                const expectedMonth = monthIndex !== -1 ? monthIndex + 1 : null;
+                
+                if (
+                  dateFromPage.year === expectedYear &&
+                  dateFromPage.month === expectedMonth
+                ) {
+                  dateInfo = dateFromPage;
+                  console.log(
+                    `[Scraper] Date trouvée sur page individuelle: ${dateInfo.dateISO}`
+                  );
+                } else {
+                  console.log(
+                    `[Scraper] Date rejetée (ne correspond pas à ${year}/${monthSlug}): ${dateFromPage.dateISO}`
+                  );
+                }
               }
             } catch (error) {
               console.log(
@@ -893,6 +998,7 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
         // CORRECTION : Si la date n'est pas trouvée sur la page d'archives,
         // essayer de la scraper depuis la page individuelle de la réunion
         // OPTIMISATION : Limiter le nombre de requêtes pour éviter les timeouts
+        // VALIDATION : Vérifier que la date correspond à l'année et au mois attendus
         if (!dateInfo && datesScrapedFromPages < MAX_DATES_FROM_PAGES) {
           console.log(
             `[Scraper] Date non trouvée sur page archives pour ${fullUrl}, tentative depuis page individuelle...`
@@ -904,10 +1010,24 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
               robotsRules
             );
             if (dateFromPage) {
-              dateInfo = dateFromPage;
-              console.log(
-                `[Scraper] Date trouvée sur page individuelle: ${dateInfo.dateISO}`
-              );
+              // VALIDATION : Vérifier que la date correspond à l'année et au mois attendus
+              const expectedYear = parseInt(year);
+              const monthIndex = MONTHS.findIndex((m) => m.slug === monthSlug);
+              const expectedMonth = monthIndex !== -1 ? monthIndex + 1 : null;
+              
+              if (
+                dateFromPage.year === expectedYear &&
+                dateFromPage.month === expectedMonth
+              ) {
+                dateInfo = dateFromPage;
+                console.log(
+                  `[Scraper] Date trouvée sur page individuelle: ${dateInfo.dateISO}`
+                );
+              } else {
+                console.log(
+                  `[Scraper] Date rejetée (ne correspond pas à ${year}/${monthSlug}): ${dateFromPage.dateISO}`
+                );
+              }
             }
           } catch (error) {
             console.log(
