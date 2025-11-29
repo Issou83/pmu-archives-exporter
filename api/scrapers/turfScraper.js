@@ -628,6 +628,29 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
             }
           }
           
+          // AMÉLIORATION : Si toujours pas trouvé et que l'URL contient un prix,
+          // essayer de scraper l'hippodrome depuis la page individuelle
+          if ((!hippodrome || hippodrome.length < 2) && fullUrl) {
+            // Vérifier si l'URL contient un prix (indique que l'hippodrome n'est pas dans l'URL)
+            const hasPriceInUrl = /prix[-\s]/i.test(href);
+            if (hasPriceInUrl) {
+              try {
+                const hippoFromPage = await scrapeHippodromeFromReunionPage(
+                  fullUrl,
+                  robotsRules
+                );
+                if (hippoFromPage) {
+                  hippodrome = hippoFromPage;
+                  console.log(
+                    `[Scraper] Hippodrome trouvé sur page individuelle pour ${fullUrl}: ${hippodrome}`
+                  );
+                }
+              } catch (error) {
+                // Erreur silencieuse
+              }
+            }
+          }
+          
           // Si toujours pas trouvé, utiliser "Inconnu" mais avec un log
           if (!hippodrome || hippodrome.length < 2) {
             console.log(
@@ -1055,13 +1078,36 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
           }
         }
 
-        if (!hippodrome) {
-          hippodrome = 'Inconnu';
-        }
-
         const fullUrl = href.startsWith('http')
           ? href
           : `https://www.turf-fr.com${href}`;
+
+        // AMÉLIORATION : Si toujours pas trouvé et que l'URL contient un prix,
+        // essayer de scraper l'hippodrome depuis la page individuelle
+        if ((!hippodrome || hippodrome.length < 2) && fullUrl) {
+          // Vérifier si l'URL contient un prix (indique que l'hippodrome n'est pas dans l'URL)
+          const hasPriceInUrl = /prix[-\s]/i.test(href);
+          if (hasPriceInUrl) {
+            try {
+              const hippoFromPage = await scrapeHippodromeFromReunionPage(
+                fullUrl,
+                robotsRules
+              );
+              if (hippoFromPage) {
+                hippodrome = hippoFromPage;
+                console.log(
+                  `[Scraper] Hippodrome trouvé sur page individuelle pour ${fullUrl}: ${hippodrome}`
+                );
+              }
+            } catch (error) {
+              // Erreur silencieuse
+            }
+          }
+        }
+
+        if (!hippodrome) {
+          hippodrome = 'Inconnu';
+        }
 
         // Chercher la date dans le conteneur, le breadcrumb, ou le texte proche
         const $container = $link.closest(
