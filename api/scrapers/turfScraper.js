@@ -61,25 +61,60 @@ function generateId(dateISO, hippodrome, reunionNumber) {
 function parseDate(dateText) {
   if (!dateText) return null;
 
-  // Formats possibles : "15 janvier 2024", "15/01/2024", etc.
-  const dateMatch = dateText.match(
-    /(\d{1,2})[\/\s]+(\w+|\d{1,2})[\/\s]+(\d{4})/
+  const monthNames = {
+    'janvier': 1, 'février': 2, 'mars': 3, 'avril': 4, 'mai': 5, 'juin': 6,
+    'juillet': 7, 'août': 8, 'septembre': 9, 'octobre': 10, 'novembre': 11, 'décembre': 12
+  };
+  
+  // Pattern 1: "lundi 15 janvier 2024" ou "15 janvier 2024"
+  const fullDateMatch = dateText.match(
+    /(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)?\s*(\d{1,2})\s+(janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)\s+(\d{4})/i
   );
-  if (dateMatch) {
-    const day = parseInt(dateMatch[1]);
-    const monthStr = dateMatch[2];
-    const year = parseInt(dateMatch[3]);
-
-    // Chercher le mois dans la liste
-    const monthIndex = MONTHS.findIndex(
-      (m) =>
-        m.label.toLowerCase() === monthStr.toLowerCase() ||
-        m.slug === monthStr.toLowerCase()
-    );
-
-    if (monthIndex !== -1) {
-      const month = monthIndex + 1;
-      const date = new Date(year, month - 1, day);
+  if (fullDateMatch) {
+    const day = parseInt(fullDateMatch[1]);
+    const monthName = fullDateMatch[2].toLowerCase();
+    const year = parseInt(fullDateMatch[3]);
+    const month = monthNames[monthName];
+    
+    if (month) {
+      const monthIndex = month - 1;
+      const date = new Date(year, monthIndex, day);
+      return {
+        dateISO: date.toISOString().split('T')[0],
+        dateLabel: `${day} ${MONTHS[monthIndex].label} ${year}`,
+        year,
+        month: monthIndex + 1,
+        monthLabel: MONTHS[monthIndex].label,
+      };
+    }
+  }
+  
+  // Pattern 2: "15/01/2024" ou "01/15/2024"
+  const slashDateMatch = dateText.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+  if (slashDateMatch) {
+    const part1 = parseInt(slashDateMatch[1]);
+    const part2 = parseInt(slashDateMatch[2]);
+    const year = parseInt(slashDateMatch[3]);
+    
+    // Déterminer si c'est DD/MM/YYYY ou MM/DD/YYYY
+    let day, month;
+    if (part1 > 12) {
+      // DD/MM/YYYY
+      day = part1;
+      month = part2;
+    } else if (part2 > 12) {
+      // MM/DD/YYYY
+      day = part2;
+      month = part1;
+    } else {
+      // Ambigu, supposer DD/MM/YYYY (format français)
+      day = part1;
+      month = part2;
+    }
+    
+    if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+      const monthIndex = month - 1;
+      const date = new Date(year, monthIndex, day);
       return {
         dateISO: date.toISOString().split('T')[0],
         dateLabel: `${day} ${MONTHS[monthIndex].label} ${year}`,
@@ -91,6 +126,130 @@ function parseDate(dateText) {
   }
 
   return null;
+}
+
+/**
+ * Scrape la date depuis la page individuelle d'une réunion
+ * @param {string} reunionUrl - URL de la réunion
+ * @param {Object} robotsRules - Règles robots.txt (optionnel)
+ */
+async function scrapeDateFromReunionPage(reunionUrl, robotsRules = null) {
+  if (!reunionUrl) return null;
+
+  try {
+    // Vérifier robots.txt si disponible
+    if (robotsRules) {
+      const allowed = isUrlAllowed(robotsRules, reunionUrl, '*');
+      if (!allowed) {
+        return null;
+      }
+    }
+
+    // Timeout de 3 secondes pour la requête
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
+
+    let response;
+    try {
+      response = await fetch(reunionUrl, {
+        signal: controller.signal,
+        headers: {
+          'User-Agent':
+            'PMU-Archives-Exporter/1.0 (Educational/Research Project; Contact: voir README)',
+          Accept:
+            'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'Accept-Language': 'fr-FR,fr;q=0.9,en;q=0.8',
+          Referer: 'https://www.turf-fr.com/',
+        },
+      });
+      clearTimeout(timeoutId);
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        return null; // Timeout silencieux
+      }
+      return null;
+    }
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const html = await response.text();
+    const $ = cheerio.load(html);
+
+    // Chercher la date dans différents endroits de la page
+    let dateText = '';
+    const datePatterns = [
+      /(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\s+(\d{1,2})\s+(janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)\s+(\d{4})/i,
+      /(\d{1,2})\s+(janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)\s+(\d{4})/i,
+      /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/,
+    ];
+
+    // PRIORITÉ 1 : Chercher dans les éléments avec classe/ID contenant "date"
+    const dateSelectors = [
+      '[class*="date"]',
+      '[id*="date"]',
+      '.date',
+      '#date',
+      '[class*="jour"]',
+      '[id*="jour"]',
+    ];
+
+    for (const selector of dateSelectors) {
+      const $elements = $(selector);
+      $elements.each((i, elem) => {
+        if (dateText) return false;
+        const $elem = $(elem);
+        const text = $elem.text();
+        
+        for (const pattern of datePatterns) {
+          const match = text.match(pattern);
+          if (match) {
+            dateText = match[0];
+            return false;
+          }
+        }
+      });
+      if (dateText) break;
+    }
+
+    // PRIORITÉ 2 : Chercher dans le titre de la page
+    if (!dateText) {
+      const $title = $('title');
+      if ($title.length > 0) {
+        const titleText = $title.text();
+        for (const pattern of datePatterns) {
+          const match = titleText.match(pattern);
+          if (match) {
+            dateText = match[0];
+            break;
+          }
+        }
+      }
+    }
+
+    // PRIORITÉ 3 : Chercher dans le body
+    if (!dateText) {
+      const bodyText = $('body').text();
+      for (const pattern of datePatterns) {
+        const match = bodyText.match(pattern);
+        if (match) {
+          dateText = match[0];
+          break;
+        }
+      }
+    }
+
+    // Parser la date trouvée
+    if (dateText) {
+      return parseDate(dateText);
+    }
+
+    return null;
+  } catch (error) {
+    return null;
+  }
 }
 
 /**
