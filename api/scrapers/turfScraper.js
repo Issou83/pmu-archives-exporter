@@ -599,8 +599,24 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
         }
 
         let dateInfo = parseDate(dateText);
+        
+        // CORRECTION : Si la date n'est pas trouvée sur la page d'archives,
+        // essayer de la scraper depuis la page individuelle de la réunion
         if (!dateInfo) {
-          // Fallback: utiliser le premier jour du mois
+          console.log(`[Scraper] Date non trouvée sur page archives pour ${fullUrl}, tentative depuis page individuelle...`);
+          try {
+            const dateFromPage = await scrapeDateFromReunionPage(fullUrl, robotsRules);
+            if (dateFromPage) {
+              dateInfo = dateFromPage;
+              console.log(`[Scraper] Date trouvée sur page individuelle: ${dateInfo.dateISO}`);
+            }
+          } catch (error) {
+            console.log(`[Scraper] Erreur lors du scraping de la date depuis ${fullUrl}: ${error.message}`);
+          }
+        }
+        
+        if (!dateInfo) {
+          // Fallback: utiliser le premier jour du mois UNIQUEMENT si vraiment pas trouvé
           const monthIndex = MONTHS.findIndex((m) => m.slug === monthSlug);
           if (monthIndex !== -1) {
             dateInfo = {
@@ -610,6 +626,7 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
               month: monthIndex + 1,
               monthLabel: MONTHS[monthIndex].label,
             };
+            console.log(`[Scraper] Utilisation du fallback (1er jour du mois) pour ${fullUrl}`);
           }
         }
 
