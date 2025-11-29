@@ -211,21 +211,28 @@ export default async function handler(req, res) {
         // OPTIMISATION : Injecter le cache des rapports d'arrivée dans le scraper
         setArrivalReportsCache(arrivalReportsCache, ARRIVAL_REPORTS_CACHE_TTL);
         
-        // CORRECTION TIMEOUT : Désactiver les rapports d'arrivée par défaut pour éviter les timeouts
-        // Le scraping des rapports peut prendre beaucoup de temps même pour 1 mois
-        // Les utilisateurs peuvent les récupérer plus tard via une requête spécifique
+        // CORRECTION : Réactiver les rapports d'arrivée avec une logique plus intelligente
+        // Le timeout global de 50s protège contre les timeouts, donc on peut activer les rapports
+        // mais on limite pour les requêtes très larges
         const totalMonths = years.length * months.length;
         
-        // Désactiver si :
-        // 1. Plus de 2 combinaisons mois/année (au lieu de 4)
-        // 2. OU si c'est un mois récent (2025) qui peut avoir beaucoup de réunions
-        const isRecentYear = years.some(y => parseInt(y) >= 2024);
-        const includeArrivalReports = totalMonths <= 2 && !isRecentYear;
+        // Activer les rapports d'arrivée si :
+        // 1. Moins de 3 combinaisons mois/année (1-2 mois = toujours activé)
+        // 2. OU si c'est une requête filtrée (hippodromes, dates, etc.) qui réduit le nombre de réunions
+        const hasFilters = (filters.hippodromes?.length > 0 || 
+                           filters.reunionNumbers?.length > 0 || 
+                           filters.countries?.length > 0 ||
+                           filters.dateFrom || 
+                           filters.dateTo ||
+                           filters.textQuery);
+        
+        // Activer si peu de mois OU si filtres appliqués (réduit le nombre de réunions à scraper)
+        const includeArrivalReports = totalMonths <= 2 || (totalMonths <= 4 && hasFilters);
         
         if (!includeArrivalReports) {
-          console.log(`[API] Rapports d'arrivée désactivés (${totalMonths} mois, année récente: ${isRecentYear}) pour éviter timeout`);
+          console.log(`[API] Rapports d'arrivée désactivés (${totalMonths} mois, filtres: ${hasFilters}) pour éviter timeout`);
         } else {
-          console.log(`[API] Rapports d'arrivée activés (${totalMonths} mois)`);
+          console.log(`[API] Rapports d'arrivée activés (${totalMonths} mois, filtres: ${hasFilters})`);
         }
         
         // CORRECTION TIMEOUT : Ajouter un timeout global de 50 secondes pour laisser une marge
