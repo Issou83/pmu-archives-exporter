@@ -495,6 +495,23 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
             }
           }
 
+          // CORRECTION : Toujours ajouter la réunion même si dateInfo est null
+          // (le fallback devrait toujours créer une dateInfo, mais on s'assure)
+          if (!dateInfo) {
+            // Fallback absolu si vraiment aucune date n'a pu être déterminée
+            const monthIndex = MONTHS.findIndex((m) => m.slug === monthSlug);
+            if (monthIndex !== -1) {
+              dateInfo = {
+                dateISO: `${year}-${String(monthIndex + 1).padStart(2, '0')}-01`,
+                dateLabel: `1 ${MONTHS[monthIndex].label} ${year}`,
+                year: parseInt(year),
+                month: monthIndex + 1,
+                monthLabel: MONTHS[monthIndex].label,
+              };
+            }
+          }
+
+          // Maintenant dateInfo devrait toujours exister
           if (dateInfo) {
             const countryCode = normalizeCountryCode(hippodrome);
             const id = generateId(dateInfo.dateISO, hippodrome, reunionNumber);
@@ -512,6 +529,11 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
               url: fullUrl,
               source: 'turf-fr',
             });
+          } else {
+            // Log d'erreur si vraiment aucune date n'a pu être déterminée
+            console.error(
+              `[Scraper] ERREUR: Impossible de déterminer la date pour ${fullUrl}, réunion non ajoutée`
+            );
           }
         }
       }
