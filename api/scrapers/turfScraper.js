@@ -1479,9 +1479,10 @@ async function scrapeArrivalReportFromUrl(url, robotsRules = null) {
   }
 
   try {
-    // OPTIMISATION : Timeout réduit à 2.5 secondes par requête pour améliorer la performance globale
+    // OPTIMISATION : Timeout réduit à 2 secondes par requête pour améliorer la performance globale
+    // Réduction supplémentaire pour éviter les timeouts globaux
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2500);
+    const timeoutId = setTimeout(() => controller.abort(), 2000);
 
     let response;
     try {
@@ -1947,25 +1948,26 @@ export async function scrapeTurfFrArchives(
     `[Scraper] Total après déduplication: ${uniqueReunions.length} réunions`
   );
 
-    // Scraper les rapports d'arrivée seulement si demandé
-    if (includeArrivalReports) {
-      console.log(`[Scraper] Début scraping des rapports d'arrivée...`);
-      // OPTIMISATION : Batch size adaptatif selon le crawl-delay et le nombre de réunions
-      // Pour éviter les timeouts, réduire le batch size si trop de réunions
-      let adaptiveBatchSize =
-        crawlDelay < 1000 ? 20 : crawlDelay < 2000 ? 15 : 12;
-      
-      // OPTIMISATION : Si beaucoup de réunions, réduire le batch size pour éviter timeout
-      if (uniqueReunions.length > 200) {
-        adaptiveBatchSize = Math.max(10, Math.floor(adaptiveBatchSize * 0.7));
-      } else if (uniqueReunions.length > 150) {
-        adaptiveBatchSize = Math.max(12, Math.floor(adaptiveBatchSize * 0.8));
-      }
-      
-      const BATCH_SIZE = adaptiveBatchSize;
-      console.log(
-        `[Scraper] Batch size: ${BATCH_SIZE} (crawl-delay: ${crawlDelay}ms, ${uniqueReunions.length} réunions)`
-      );
+  // Scraper les rapports d'arrivée seulement si demandé
+  if (includeArrivalReports) {
+    console.log(`[Scraper] Début scraping des rapports d'arrivée...`);
+    // OPTIMISATION : Batch size adaptatif selon le crawl-delay et le nombre de réunions
+    // Pour éviter les timeouts, réduire le batch size si trop de réunions
+    let adaptiveBatchSize =
+      crawlDelay < 1000 ? 25 : crawlDelay < 2000 ? 18 : 15;
+
+    // OPTIMISATION : Si beaucoup de réunions, réduire le batch size pour éviter timeout
+    // Mais augmenter le batch size de base pour compenser le timeout réduit par requête
+    if (uniqueReunions.length > 200) {
+      adaptiveBatchSize = Math.max(15, Math.floor(adaptiveBatchSize * 0.75));
+    } else if (uniqueReunions.length > 150) {
+      adaptiveBatchSize = Math.max(18, Math.floor(adaptiveBatchSize * 0.85));
+    }
+
+    const BATCH_SIZE = adaptiveBatchSize;
+    console.log(
+      `[Scraper] Batch size: ${BATCH_SIZE} (crawl-delay: ${crawlDelay}ms, ${uniqueReunions.length} réunions)`
+    );
 
     // CORRECTION : Ne PAS limiter le nombre de réunions - C'EST LE BUT DES RECHERCHES !
     // Les rapports doivent être scrapés pour TOUTES les réunions
