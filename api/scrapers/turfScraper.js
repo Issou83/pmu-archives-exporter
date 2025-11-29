@@ -291,7 +291,8 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
   }
 
   // CORRECTION : Déclarer datesScrapedFromPages et MAX_DATES_FROM_PAGES au début de la fonction
-  const MAX_DATES_FROM_PAGES = 20; // Limite pour éviter les timeouts
+  // OPTIMISATION : Réduire à 5 pour éviter les timeouts (5 * 2s = 10s max pour dates)
+  const MAX_DATES_FROM_PAGES = 5; // Limite pour éviter les timeouts
   let datesScrapedFromPages = 0; // Compteur pour limiter le scraping depuis pages individuelles
 
   try {
