@@ -1951,18 +1951,17 @@ export async function scrapeTurfFrArchives(
   // Scraper les rapports d'arrivée seulement si demandé
   if (includeArrivalReports) {
     console.log(`[Scraper] Début scraping des rapports d'arrivée...`);
+    
     // OPTIMISATION : Batch size adaptatif selon le crawl-delay et le nombre de réunions
-    // Pour éviter les timeouts, réduire le batch size si trop de réunions
-    // AUGMENTATION : Batch size plus agressif pour compenser timeout réduit (2s)
+    // AUGMENTATION AGRESSIVE : Batch size très élevé pour maximiser le parallélisme
     let adaptiveBatchSize =
-      crawlDelay < 1000 ? 30 : crawlDelay < 2000 ? 22 : 18;
+      crawlDelay < 1000 ? 40 : crawlDelay < 2000 ? 30 : 25;
 
-    // OPTIMISATION : Si beaucoup de réunions, réduire le batch size pour éviter timeout
-    // Mais garder un batch size élevé pour maximiser le parallélisme
-    if (uniqueReunions.length > 220) {
-      adaptiveBatchSize = Math.max(18, Math.floor(adaptiveBatchSize * 0.8));
-    } else if (uniqueReunions.length > 180) {
-      adaptiveBatchSize = Math.max(20, Math.floor(adaptiveBatchSize * 0.85));
+    // OPTIMISATION : Si beaucoup de réunions, réduire légèrement mais garder élevé
+    if (uniqueReunions.length > 240) {
+      adaptiveBatchSize = Math.max(25, Math.floor(adaptiveBatchSize * 0.85));
+    } else if (uniqueReunions.length > 200) {
+      adaptiveBatchSize = Math.max(30, Math.floor(adaptiveBatchSize * 0.9));
     }
 
     const BATCH_SIZE = adaptiveBatchSize;
@@ -1970,19 +1969,45 @@ export async function scrapeTurfFrArchives(
       `[Scraper] Batch size: ${BATCH_SIZE} (crawl-delay: ${crawlDelay}ms, ${uniqueReunions.length} réunions)`
     );
 
-    // CORRECTION : Ne PAS limiter le nombre de réunions - C'EST LE BUT DES RECHERCHES !
-    // Les rapports doivent être scrapés pour TOUTES les réunions
-    // On optimise avec batch size et timeout réduits au lieu de limiter
-    const reunionsToScrape = uniqueReunions;
+    // OPTIMISATION : Prioriser les réunions les plus récentes (tri par date décroissante)
+    // Les réunions récentes sont souvent plus importantes et peuvent être scrapées en premier
+    const reunionsToScrape = [...uniqueReunions].sort((a, b) => {
+      const dateA = new Date(a.dateISO);
+      const dateB = new Date(b.dateISO);
+      return dateB - dateA; // Plus récent en premier
+    });
 
     console.log(
-      `[Scraper] Scraping des rapports pour TOUTES les ${uniqueReunions.length} réunions (c'est le but des recherches !)`
+      `[Scraper] Scraping des rapports pour TOUTES les ${uniqueReunions.length} réunions (triées par date décroissante)`
     );
 
+    // OPTIMISATION : Suivre le temps écoulé pour early exit si timeout imminent
+    const SCRAPING_START_TIME = Date.now();
+    const MAX_SCRAPING_TIME = 50000; // 50 secondes max pour laisser 7s de marge (limite 56s)
+    let totalScraped = 0;
+    let totalWithReports = 0;
+
     for (let i = 0; i < reunionsToScrape.length; i += BATCH_SIZE) {
+      // EARLY EXIT : Vérifier si on approche du timeout
+      const elapsedTime = Date.now() - SCRAPING_START_TIME;
+      const remainingTime = MAX_SCRAPING_TIME - elapsedTime;
+      
+      if (remainingTime < 5000) {
+        // Moins de 5 secondes restantes, arrêter le scraping
+        console.log(
+          `[Scraper] ⚠️ Timeout imminent (${Math.round(remainingTime / 1000)}s restantes), arrêt du scraping des rapports`
+        );
+        console.log(
+          `[Scraper] Rapports scrapés: ${totalWithReports}/${totalScraped} (${totalScraped > 0 ? Math.round((totalWithReports / totalScraped) * 100) : 0}%)`
+        );
+        break;
+      }
+
       const batch = reunionsToScrape.slice(i, i + BATCH_SIZE);
+      totalScraped += batch.length;
 
       // OPTIMISATION : Utiliser Promise.allSettled pour ne pas bloquer sur les erreurs
+      // ET réduire le crawl-delay entre batches si on approche du timeout
       const promises = batch.map(async (reunion) => {
         try {
           const arrivalReport = await scrapeArrivalReport(
@@ -1990,6 +2015,7 @@ export async function scrapeTurfFrArchives(
             robotsRules
           );
           reunion.arrivalReport = arrivalReport;
+          if (arrivalReport) totalWithReports++;
           return { status: 'fulfilled', reunion };
         } catch (error) {
           reunion.arrivalReport = null;
@@ -2002,39 +2028,43 @@ export async function scrapeTurfFrArchives(
 
       // Compter les succès et échecs pour le logging
       const successCount = results.filter(
-        (r) => r.status === 'fulfilled'
+        (r) => r.status === 'fulfilled' && r.value?.reunion?.arrivalReport
       ).length;
       const failureCount = results.filter(
-        (r) => r.status === 'rejected'
+        (r) => r.status === 'rejected' || !r.value?.reunion?.arrivalReport
       ).length;
-      if (failureCount > 0) {
-        console.log(
-          `[Scraper] Batch ${Math.floor(i / BATCH_SIZE) + 1}: ${successCount} succès, ${failureCount} échecs`
-        );
-      }
-
-      // ✅ RESPECT DE ROBOTS.TXT - Utiliser le crawl-delay recommandé entre les lots
-      if (i + BATCH_SIZE < reunionsToScrape.length) {
-        await sleep(crawlDelay);
-      }
-
-      // Afficher la progression (plus fréquent avec batch size plus grand)
-      const progressInterval = BATCH_SIZE * 2; // Afficher tous les 2 batches
-      if (
-        (i + BATCH_SIZE) % progressInterval === 0 ||
-        i + BATCH_SIZE >= reunionsToScrape.length
-      ) {
+      
+      if (failureCount > 0 || (i + BATCH_SIZE) % (BATCH_SIZE * 3) === 0) {
         const progress = Math.min(i + BATCH_SIZE, reunionsToScrape.length);
         const percentage = Math.round(
           (progress / reunionsToScrape.length) * 100
         );
         console.log(
-          `[Scraper] Rapports d'arrivée: ${progress}/${reunionsToScrape.length} (${percentage}%)`
+          `[Scraper] Batch ${Math.floor(i / BATCH_SIZE) + 1}: ${successCount}/${batch.length} rapports trouvés | Progression: ${progress}/${reunionsToScrape.length} (${percentage}%) | Temps: ${Math.round(elapsedTime / 1000)}s`
         );
+      }
+
+      // OPTIMISATION : Réduire le crawl-delay si on approche du timeout
+      // Plus on approche du timeout, plus on réduit le délai entre batches
+      let currentCrawlDelay = crawlDelay;
+      if (remainingTime < 15000) {
+        // Moins de 15s restantes, réduire le délai de moitié
+        currentCrawlDelay = Math.max(200, Math.floor(crawlDelay * 0.5));
+      } else if (remainingTime < 25000) {
+        // Moins de 25s restantes, réduire le délai de 25%
+        currentCrawlDelay = Math.max(300, Math.floor(crawlDelay * 0.75));
+      }
+
+      // ✅ RESPECT DE ROBOTS.TXT - Utiliser le crawl-delay adaptatif entre les lots
+      if (i + BATCH_SIZE < reunionsToScrape.length) {
+        await sleep(currentCrawlDelay);
       }
     }
 
-    console.log(`[Scraper] Scraping des rapports d'arrivée terminé`);
+    const finalElapsedTime = Date.now() - SCRAPING_START_TIME;
+    console.log(
+      `[Scraper] Scraping des rapports d'arrivée terminé: ${totalWithReports}/${totalScraped} rapports trouvés (${totalScraped > 0 ? Math.round((totalWithReports / totalScraped) * 100) : 0}%) en ${Math.round(finalElapsedTime / 1000)}s`
+    );
   } else {
     console.log(`[Scraper] Scraping des rapports d'arrivée désactivé`);
   }

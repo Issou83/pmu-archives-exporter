@@ -1,4 +1,7 @@
-import { scrapeTurfFrArchives, setArrivalReportsCache } from './scrapers/turfScraper.js';
+import {
+  scrapeTurfFrArchives,
+  setArrivalReportsCache,
+} from './scrapers/turfScraper.js';
 import { scrapePmuJsonArchives } from './scrapers/pmuJsonScraper.js';
 
 // Cache mémoire simple avec TTL
@@ -177,7 +180,9 @@ export default async function handler(req, res) {
       res.setHeader('Content-Type', 'application/json');
       return res.status(200).json(filtered);
     } else if (cached) {
-      console.log(`[API] Cache expiré (âge: ${Math.round(cacheAge / 1000)}s, TTL: ${CACHE_TTL / 1000}s)`);
+      console.log(
+        `[API] Cache expiré (âge: ${Math.round(cacheAge / 1000)}s, TTL: ${CACHE_TTL / 1000}s)`
+      );
     } else {
       console.log(`[API] Cache miss pour la clé: ${cacheKey}`);
     }
@@ -186,7 +191,7 @@ export default async function handler(req, res) {
     console.log(
       `[API] Scraping avec source=${source}, years=${years.join(',')}, months=${months.join(',')}`
     );
-    
+
     // Vérifier que fetch est disponible
     if (typeof fetch === 'undefined') {
       const errorMsg = `fetch is not available. Node.js version: ${process.version}. Required: >= 18.0.0`;
@@ -196,7 +201,7 @@ export default async function handler(req, res) {
         nodeVersion: process.version,
       });
     }
-    
+
     let reunions = [];
 
     if (source === 'turf-fr') {
@@ -210,45 +215,67 @@ export default async function handler(req, res) {
       try {
         // OPTIMISATION : Injecter le cache des rapports d'arrivée dans le scraper
         setArrivalReportsCache(arrivalReportsCache, ARRIVAL_REPORTS_CACHE_TTL);
-        
+
         // CORRECTION : Réactiver les rapports d'arrivée - C'EST LE BUT DES RECHERCHES !
         // Le timeout global de 55s protège, mais on optimise pour éviter les timeouts
         const totalMonths = years.length * months.length;
-        
+
         // Activer les rapports d'arrivée si :
         // 1. Exactement 1 mois (toujours activé - c'est le but des recherches !)
         // 2. OU 2 mois avec des filtres spécifiques (hippodromes, réunions, dates) qui réduisent le nombre de réunions
-        const hasSpecificFilters = (filters.hippodromes?.length > 0 || 
-                                   filters.reunionNumbers?.length > 0 || 
-                                   filters.dateFrom || 
-                                   filters.dateTo);
-        
+        const hasSpecificFilters =
+          filters.hippodromes?.length > 0 ||
+          filters.reunionNumbers?.length > 0 ||
+          filters.dateFrom ||
+          filters.dateTo;
+
         // TOUJOURS activer pour 1 mois (c'est le but des recherches !)
         // Pour 2 mois, activer seulement avec filtres spécifiques
-        const includeArrivalReports = totalMonths === 1 || (totalMonths === 2 && hasSpecificFilters);
-        
+        const includeArrivalReports =
+          totalMonths === 1 || (totalMonths === 2 && hasSpecificFilters);
+
         if (!includeArrivalReports) {
-          console.log(`[API] Rapports d'arrivée désactivés (${totalMonths} mois, filtres spécifiques: ${hasSpecificFilters}) pour éviter timeout`);
+          console.log(
+            `[API] Rapports d'arrivée désactivés (${totalMonths} mois, filtres spécifiques: ${hasSpecificFilters}) pour éviter timeout`
+          );
         } else {
-          console.log(`[API] Rapports d'arrivée activés (${totalMonths} mois, filtres spécifiques: ${hasSpecificFilters})`);
+          console.log(
+            `[API] Rapports d'arrivée activés (${totalMonths} mois, filtres spécifiques: ${hasSpecificFilters})`
+          );
         }
-        
-        // CORRECTION TIMEOUT : Ajouter un timeout global de 57 secondes pour laisser une marge
-        // Vercel a une limite de 60 secondes, on s'arrête à 57 pour éviter le timeout
-        // Réduit à 57s pour laisser plus de marge et éviter les timeouts 504
-        const SCRAPING_TIMEOUT = 57000; // 57 secondes
-        
-        const scrapingPromise = scrapeTurfFrArchives(years, months, includeArrivalReports);
+
+        // OPTIMISATION : Timeout global de 56 secondes pour laisser une marge de 4s
+        // Vercel a une limite de 60 secondes, on s'arrête à 56 pour éviter le timeout
+        // Le scraper a un early exit à 50s, donc on a 6s de marge totale
+        const SCRAPING_TIMEOUT = 56000; // 56 secondes
+
+        const scrapingPromise = scrapeTurfFrArchives(
+          years,
+          months,
+          includeArrivalReports
+        );
         const timeoutPromise = new Promise((_, reject) => {
           setTimeout(() => {
-            reject(new Error('Scraping timeout: Le scraping prend trop de temps (>57s). Réduisez le nombre de mois ou d\'années.'));
+            reject(
+              new Error(
+                "Scraping timeout: Le scraping prend trop de temps (>56s). Réduisez le nombre de mois ou d'années."
+              )
+            );
           }, SCRAPING_TIMEOUT);
         });
-        
+
         try {
           reunions = await Promise.race([scrapingPromise, timeoutPromise]);
+          
+          // OPTIMISATION : Compter les rapports trouvés pour le logging
+          const withReports = reunions.filter((r) => r.arrivalReport).length;
+          const reportPct =
+            reunions.length > 0
+              ? Math.round((withReports / reunions.length) * 100)
+              : 0;
+          
           console.log(
-            `[API] Scraping terminé: ${reunions.length} réunions trouvées`
+            `[API] Scraping terminé: ${reunions.length} réunions trouvées (${withReports} avec rapports, ${reportPct}%)`
           );
         } catch (timeoutError) {
           if (timeoutError.message.includes('timeout')) {
@@ -256,7 +283,8 @@ export default async function handler(req, res) {
             return res.status(504).json({
               error: {
                 code: '504',
-                message: 'Le scraping prend trop de temps (>57s). Essayez de réduire le nombre de mois ou d\'années sélectionnés, ou utilisez des filtres plus spécifiques (hippodromes, dates).',
+                message:
+                  "Le scraping prend trop de temps (>56s). Essayez de réduire le nombre de mois ou d'années sélectionnés, ou utilisez des filtres plus spécifiques (hippodromes, dates).",
               },
             });
           }
@@ -265,11 +293,15 @@ export default async function handler(req, res) {
       } catch (scrapeError) {
         console.error(`[API] Erreur lors du scraping:`, scrapeError);
         // Si c'est un timeout, retourner une erreur plus claire
-        if (scrapeError.message?.includes('timeout') || scrapeError.code === 'ECONNABORTED') {
+        if (
+          scrapeError.message?.includes('timeout') ||
+          scrapeError.code === 'ECONNABORTED'
+        ) {
           return res.status(504).json({
             error: {
               code: '504',
-              message: 'Le scraping prend trop de temps. Essayez de réduire le nombre de mois ou d\'années sélectionnés.',
+              message:
+                "Le scraping prend trop de temps. Essayez de réduire le nombre de mois ou d'années sélectionnés.",
             },
           });
         }
@@ -311,20 +343,21 @@ export default async function handler(req, res) {
     return res.status(200).json(filtered);
   } catch (error) {
     console.error('❌ Erreur dans /api/archives:', error);
-    console.error('📋 Type d\'erreur:', error.constructor.name);
+    console.error("📋 Type d'erreur:", error.constructor.name);
     console.error('📋 Message:', error.message);
     console.error('📋 Stack trace:', error.stack);
-    
+
     // Gérer les timeouts spécifiquement
     if (error.message?.includes('timeout') || error.code === 'ECONNABORTED') {
       return res.status(504).json({
         error: {
           code: '504',
-          message: 'Le scraping prend trop de temps. Essayez de réduire le nombre de mois ou d\'années sélectionnés.',
+          message:
+            "Le scraping prend trop de temps. Essayez de réduire le nombre de mois ou d'années sélectionnés.",
         },
       });
     }
-    
+
     // Retourner une erreur plus détaillée
     const errorResponse = {
       error: {
@@ -333,14 +366,17 @@ export default async function handler(req, res) {
       },
       type: error.constructor.name,
     };
-    
+
     // En développement, ajouter plus de détails
-    if (process.env.NODE_ENV === 'development' || process.env.VERCEL_ENV !== 'production') {
+    if (
+      process.env.NODE_ENV === 'development' ||
+      process.env.VERCEL_ENV !== 'production'
+    ) {
       errorResponse.stack = error.stack;
       errorResponse.nodeVersion = process.version;
       errorResponse.hasFetch = typeof fetch !== 'undefined';
     }
-    
+
     return res.status(500).json(errorResponse);
   }
 }
