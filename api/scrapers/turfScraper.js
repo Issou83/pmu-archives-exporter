@@ -1277,13 +1277,28 @@ export async function scrapeTurfFrArchives(
     console.log(`[Scraper] Début scraping des rapports d'arrivée...`);
     // OPTIMISATION : Batch size adaptatif selon le crawl-delay
     // Plus le crawl-delay est court, plus on peut traiter en parallèle
-    // Réduit pour éviter les timeouts avec beaucoup de réunions
-    const adaptiveBatchSize = crawlDelay < 1000 ? 15 : crawlDelay < 2000 ? 10 : 8;
+    // Réduit encore plus pour éviter les timeouts avec beaucoup de réunions
+    const adaptiveBatchSize = crawlDelay < 1000 ? 12 : crawlDelay < 2000 ? 8 : 6;
     const BATCH_SIZE = adaptiveBatchSize;
     console.log(`[Scraper] Batch size: ${BATCH_SIZE} (crawl-delay: ${crawlDelay}ms)`);
+    
+    // OPTIMISATION : Limiter le nombre de réunions scrapées si trop nombreuses
+    // Pour éviter les timeouts, limiter à 30 réunions max pour les rapports
+    const maxReunionsForReports = 30;
+    const reunionsToScrape = uniqueReunions.length > maxReunionsForReports 
+      ? uniqueReunions.slice(0, maxReunionsForReports)
+      : uniqueReunions;
+    
+    if (uniqueReunions.length > maxReunionsForReports) {
+      console.log(`[Scraper] Limitation: ${uniqueReunions.length} réunions → ${maxReunionsForReports} pour les rapports (évite timeout)`);
+      // Marquer les autres comme "Non disponible"
+      for (let i = maxReunionsForReports; i < uniqueReunions.length; i++) {
+        uniqueReunions[i].arrivalReport = 'Non disponible';
+      }
+    }
 
-    for (let i = 0; i < uniqueReunions.length; i += BATCH_SIZE) {
-      const batch = uniqueReunions.slice(i, i + BATCH_SIZE);
+    for (let i = 0; i < reunionsToScrape.length; i += BATCH_SIZE) {
+      const batch = reunionsToScrape.slice(i, i + BATCH_SIZE);
 
       // OPTIMISATION : Utiliser Promise.allSettled pour ne pas bloquer sur les erreurs
       const promises = batch.map(async (reunion) => {
@@ -1308,7 +1323,7 @@ export async function scrapeTurfFrArchives(
       }
 
       // ✅ RESPECT DE ROBOTS.TXT - Utiliser le crawl-delay recommandé entre les lots
-      if (i + BATCH_SIZE < uniqueReunions.length) {
+      if (i + BATCH_SIZE < reunionsToScrape.length) {
         await sleep(crawlDelay);
       }
 
@@ -1316,12 +1331,12 @@ export async function scrapeTurfFrArchives(
       const progressInterval = BATCH_SIZE * 2; // Afficher tous les 2 batches
       if (
         (i + BATCH_SIZE) % progressInterval === 0 ||
-        i + BATCH_SIZE >= uniqueReunions.length
+        i + BATCH_SIZE >= reunionsToScrape.length
       ) {
-        const progress = Math.min(i + BATCH_SIZE, uniqueReunions.length);
-        const percentage = Math.round((progress / uniqueReunions.length) * 100);
+        const progress = Math.min(i + BATCH_SIZE, reunionsToScrape.length);
+        const percentage = Math.round((progress / reunionsToScrape.length) * 100);
         console.log(
-          `[Scraper] Rapports d'arrivée: ${progress}/${uniqueReunions.length} (${percentage}%)`
+          `[Scraper] Rapports d'arrivée: ${progress}/${reunionsToScrape.length} (${percentage}%)`
         );
       }
     }

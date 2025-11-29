@@ -211,25 +211,21 @@ export default async function handler(req, res) {
         // OPTIMISATION : Injecter le cache des rapports d'arrivée dans le scraper
         setArrivalReportsCache(arrivalReportsCache, ARRIVAL_REPORTS_CACHE_TTL);
         
-        // CORRECTION : Réactiver les rapports d'arrivée avec une logique équilibrée
-        // Le timeout global de 55s protège, mais on limite pour éviter les timeouts
+        // CORRECTION : Réactiver les rapports d'arrivée - C'EST LE BUT DES RECHERCHES !
+        // Le timeout global de 55s protège, mais on optimise pour éviter les timeouts
         const totalMonths = years.length * months.length;
         
         // Activer les rapports d'arrivée si :
-        // 1. Exactement 1 mois (le plus sûr)
-        // 2. Année passée (2024 et avant) - les rapports sont disponibles
-        // 3. OU 2 mois avec des filtres spécifiques (hippodromes, réunions, dates) qui réduisent le nombre de réunions
+        // 1. Exactement 1 mois (toujours activé - c'est le but des recherches !)
+        // 2. OU 2 mois avec des filtres spécifiques (hippodromes, réunions, dates) qui réduisent le nombre de réunions
         const hasSpecificFilters = (filters.hippodromes?.length > 0 || 
                                    filters.reunionNumbers?.length > 0 || 
                                    filters.dateFrom || 
                                    filters.dateTo);
         
-        // Désactiver pour les années futures (2025+) car les rapports ne sont pas encore disponibles
-        // et le scraping prend trop de temps
-        const isFutureYear = years.some(y => parseInt(y) >= 2025);
-        
-        // Activer seulement pour 1 mois avec année passée, ou 2 mois avec filtres très spécifiques
-        const includeArrivalReports = (totalMonths === 1 && !isFutureYear) || (totalMonths === 2 && hasSpecificFilters && !isFutureYear);
+        // TOUJOURS activer pour 1 mois (c'est le but des recherches !)
+        // Pour 2 mois, activer seulement avec filtres spécifiques
+        const includeArrivalReports = totalMonths === 1 || (totalMonths === 2 && hasSpecificFilters);
         
         if (!includeArrivalReports) {
           console.log(`[API] Rapports d'arrivée désactivés (${totalMonths} mois, filtres spécifiques: ${hasSpecificFilters}) pour éviter timeout`);
@@ -237,15 +233,15 @@ export default async function handler(req, res) {
           console.log(`[API] Rapports d'arrivée activés (${totalMonths} mois, filtres spécifiques: ${hasSpecificFilters})`);
         }
         
-        // CORRECTION TIMEOUT : Ajouter un timeout global de 55 secondes pour laisser une marge
-        // Vercel a une limite de 60 secondes, on s'arrête à 55 pour éviter le timeout
-        // Augmenté de 50s à 55s pour permettre le scraping des rapports d'arrivée
-        const SCRAPING_TIMEOUT = 55000; // 55 secondes
+        // CORRECTION TIMEOUT : Ajouter un timeout global de 58 secondes pour laisser une marge
+        // Vercel a une limite de 60 secondes, on s'arrête à 58 pour éviter le timeout
+        // Augmenté à 58s pour permettre le scraping des rapports d'arrivée (c'est le but des recherches !)
+        const SCRAPING_TIMEOUT = 58000; // 58 secondes
         
         const scrapingPromise = scrapeTurfFrArchives(years, months, includeArrivalReports);
         const timeoutPromise = new Promise((_, reject) => {
           setTimeout(() => {
-            reject(new Error('Scraping timeout: Le scraping prend trop de temps (>55s). Réduisez le nombre de mois ou d\'années.'));
+            reject(new Error('Scraping timeout: Le scraping prend trop de temps (>58s). Réduisez le nombre de mois ou d\'années.'));
           }, SCRAPING_TIMEOUT);
         });
         
@@ -260,7 +256,7 @@ export default async function handler(req, res) {
             return res.status(504).json({
               error: {
                 code: '504',
-                message: 'Le scraping prend trop de temps (>55s). Essayez de réduire le nombre de mois ou d\'années sélectionnés, ou utilisez des filtres plus spécifiques (hippodromes, dates).',
+                message: 'Le scraping prend trop de temps (>58s). Essayez de réduire le nombre de mois ou d\'années sélectionnés, ou utilisez des filtres plus spécifiques (hippodromes, dates).',
               },
             });
           }
