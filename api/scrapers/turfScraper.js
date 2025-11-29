@@ -145,9 +145,9 @@ async function scrapeDateFromReunionPage(reunionUrl, robotsRules = null) {
       }
     }
 
-    // Timeout de 3 secondes pour la requête
+    // OPTIMISATION : Timeout réduit à 2 secondes pour éviter les timeouts globaux
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3000);
+    const timeoutId = setTimeout(() => controller.abort(), 2000);
 
     let response;
     try {
@@ -420,8 +420,10 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
           
           // CORRECTION : Si la date n'est pas trouvée sur la page d'archives,
           // essayer de la scraper depuis la page individuelle de la réunion
-          if (!dateInfo) {
+          // OPTIMISATION : Limiter le nombre de requêtes pour éviter les timeouts
+          if (!dateInfo && datesScrapedFromPages < MAX_DATES_FROM_PAGES) {
             console.log(`[Scraper] Date non trouvée sur page archives pour ${fullUrl}, tentative depuis page individuelle...`);
+            datesScrapedFromPages++;
             try {
               const dateFromPage = await scrapeDateFromReunionPage(fullUrl, robotsRules);
               if (dateFromPage) {
@@ -431,6 +433,8 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
             } catch (error) {
               console.log(`[Scraper] Erreur lors du scraping de la date depuis ${fullUrl}: ${error.message}`);
             }
+          } else if (!dateInfo && datesScrapedFromPages >= MAX_DATES_FROM_PAGES) {
+            console.log(`[Scraper] Limite atteinte (${MAX_DATES_FROM_PAGES}) pour scraping dates depuis pages individuelles`);
           }
           
           if (!dateInfo) {
@@ -765,8 +769,10 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
         
         // CORRECTION : Si la date n'est pas trouvée sur la page d'archives,
         // essayer de la scraper depuis la page individuelle de la réunion
-        if (!dateInfo) {
+        // OPTIMISATION : Limiter le nombre de requêtes pour éviter les timeouts
+        if (!dateInfo && datesScrapedFromPages < MAX_DATES_FROM_PAGES) {
           console.log(`[Scraper] Date non trouvée sur page archives pour ${fullUrl}, tentative depuis page individuelle...`);
+          datesScrapedFromPages++;
           try {
             const dateFromPage = await scrapeDateFromReunionPage(fullUrl, robotsRules);
             if (dateFromPage) {
@@ -776,6 +782,8 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
           } catch (error) {
             console.log(`[Scraper] Erreur lors du scraping de la date depuis ${fullUrl}: ${error.message}`);
           }
+        } else if (!dateInfo && datesScrapedFromPages >= MAX_DATES_FROM_PAGES) {
+          console.log(`[Scraper] Limite atteinte (${MAX_DATES_FROM_PAGES}) pour scraping dates depuis pages individuelles`);
         }
         
         if (!dateInfo) {
