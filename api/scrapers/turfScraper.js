@@ -812,7 +812,7 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
           });
         }
       }
-    });
+    }
 
     console.log(
       `[Scraper] Trouvé ${foundLinks} liens, ${reunions.length} réunions extraites`
