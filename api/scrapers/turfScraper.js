@@ -460,7 +460,7 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
   // OPTIMISATION : Réduire à 5 pour éviter les timeouts (5 * 2s = 10s max pour dates)
   const MAX_DATES_FROM_PAGES = 5; // Limite pour éviter les timeouts
   let datesScrapedFromPages = 0; // Compteur pour limiter le scraping depuis pages individuelles
-  
+
   // OPTIMISATION : Limiter aussi le nombre de requêtes pour les hippodromes depuis pages individuelles
   const MAX_HIPPODROMES_FROM_PAGES = 3; // Limite pour éviter les timeouts (3 * 2s = 6s max)
   let hippodromesScrapedFromPages = 0; // Compteur pour limiter le scraping depuis pages individuelles
@@ -650,7 +650,11 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
           // AMÉLIORATION : Si toujours pas trouvé et que l'URL contient un prix,
           // essayer de scraper l'hippodrome depuis la page individuelle
           // OPTIMISATION : Limiter le nombre de requêtes pour éviter les timeouts
-          if ((!hippodrome || hippodrome.length < 2) && fullUrl && hippodromesScrapedFromPages < MAX_HIPPODROMES_FROM_PAGES) {
+          if (
+            (!hippodrome || hippodrome.length < 2) &&
+            fullUrl &&
+            hippodromesScrapedFromPages < MAX_HIPPODROMES_FROM_PAGES
+          ) {
             // Vérifier si l'URL contient un prix (indique que l'hippodrome n'est pas dans l'URL)
             const hasPriceInUrl = /prix[-\s]/i.test(href);
             if (hasPriceInUrl) {
@@ -1108,7 +1112,11 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
         // AMÉLIORATION : Si toujours pas trouvé et que l'URL contient un prix,
         // essayer de scraper l'hippodrome depuis la page individuelle
         // OPTIMISATION : Limiter le nombre de requêtes pour éviter les timeouts
-        if ((!hippodrome || hippodrome.length < 2) && fullUrl && hippodromesScrapedFromPages < MAX_HIPPODROMES_FROM_PAGES) {
+        if (
+          (!hippodrome || hippodrome.length < 2) &&
+          fullUrl &&
+          hippodromesScrapedFromPages < MAX_HIPPODROMES_FROM_PAGES
+        ) {
           // Vérifier si l'URL contient un prix (indique que l'hippodrome n'est pas dans l'URL)
           const hasPriceInUrl = /prix[-\s]/i.test(href);
           if (hasPriceInUrl) {
@@ -1471,9 +1479,9 @@ async function scrapeArrivalReportFromUrl(url, robotsRules = null) {
   }
 
   try {
-    // Timeout optimisé : 3 secondes par requête (réduction de 40%)
+    // OPTIMISATION : Timeout réduit à 2.5 secondes par requête pour améliorer la performance globale
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3000);
+    const timeoutId = setTimeout(() => controller.abort(), 2500);
 
     let response;
     try {
@@ -1939,18 +1947,25 @@ export async function scrapeTurfFrArchives(
     `[Scraper] Total après déduplication: ${uniqueReunions.length} réunions`
   );
 
-  // Scraper les rapports d'arrivée seulement si demandé
-  if (includeArrivalReports) {
-    console.log(`[Scraper] Début scraping des rapports d'arrivée...`);
-    // OPTIMISATION : Batch size adaptatif selon le crawl-delay
-    // Plus le crawl-delay est court, plus on peut traiter en parallèle
-    // Augmenté pour scraper plus de réunions rapidement
-    const adaptiveBatchSize =
-      crawlDelay < 1000 ? 15 : crawlDelay < 2000 ? 10 : 8;
-    const BATCH_SIZE = adaptiveBatchSize;
-    console.log(
-      `[Scraper] Batch size: ${BATCH_SIZE} (crawl-delay: ${crawlDelay}ms)`
-    );
+    // Scraper les rapports d'arrivée seulement si demandé
+    if (includeArrivalReports) {
+      console.log(`[Scraper] Début scraping des rapports d'arrivée...`);
+      // OPTIMISATION : Batch size adaptatif selon le crawl-delay et le nombre de réunions
+      // Pour éviter les timeouts, réduire le batch size si trop de réunions
+      let adaptiveBatchSize =
+        crawlDelay < 1000 ? 20 : crawlDelay < 2000 ? 15 : 12;
+      
+      // OPTIMISATION : Si beaucoup de réunions, réduire le batch size pour éviter timeout
+      if (uniqueReunions.length > 200) {
+        adaptiveBatchSize = Math.max(10, Math.floor(adaptiveBatchSize * 0.7));
+      } else if (uniqueReunions.length > 150) {
+        adaptiveBatchSize = Math.max(12, Math.floor(adaptiveBatchSize * 0.8));
+      }
+      
+      const BATCH_SIZE = adaptiveBatchSize;
+      console.log(
+        `[Scraper] Batch size: ${BATCH_SIZE} (crawl-delay: ${crawlDelay}ms, ${uniqueReunions.length} réunions)`
+      );
 
     // CORRECTION : Ne PAS limiter le nombre de réunions - C'EST LE BUT DES RECHERCHES !
     // Les rapports doivent être scrapés pour TOUTES les réunions

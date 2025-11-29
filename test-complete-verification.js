@@ -53,7 +53,9 @@ async function testCompleteVerification() {
 
       // Gérer le cas où l'API retourne un objet avec une propriété error
       if (!Array.isArray(data)) {
-        console.error(`   ❌ L'API a retourné une erreur: ${JSON.stringify(data)}`);
+        console.error(
+          `   ❌ L'API a retourné une erreur: ${JSON.stringify(data)}`
+        );
         totalFailed++;
         continue;
       }
@@ -95,7 +97,10 @@ async function testCompleteVerification() {
             decembre: 11,
           };
           const expectedMonth = monthNames[monthSlug];
-          if (expectedMonth !== undefined && date.getMonth() !== expectedMonth) {
+          if (
+            expectedMonth !== undefined &&
+            date.getMonth() !== expectedMonth
+          ) {
             return true;
           }
         }
@@ -121,7 +126,8 @@ async function testCompleteVerification() {
 
       // Test 3: Hippodromes non "Inconnu"
       const unknownHippodromes = data.filter(
-        (r) => !r.hippodrome || r.hippodrome === 'Inconnu' || r.hippodrome.length < 2
+        (r) =>
+          !r.hippodrome || r.hippodrome === 'Inconnu' || r.hippodrome.length < 2
       );
 
       if (unknownHippodromes.length > 0) {
@@ -216,9 +222,7 @@ async function testCompleteVerification() {
       const ids = data.map((r) => r.id);
       const uniqueIds = new Set(ids);
       if (ids.length !== uniqueIds.size) {
-        console.log(
-          `   ❌ ${ids.length - uniqueIds.size} doublons détectés`
-        );
+        console.log(`   ❌ ${ids.length - uniqueIds.size} doublons détectés`);
         totalFailed++;
       } else {
         console.log(`   ✅ Aucun doublon détecté`);
@@ -248,13 +252,16 @@ async function testCompleteVerification() {
       console.log(`\n   📋 Résumé ${testCase.name}:`);
       console.log(`      - Réunions: ${data.length}`);
       console.log(`      - Dates invalides: ${invalidDates.length}`);
-      console.log(`      - Hippodromes "Inconnu": ${unknownHippodromes.length}`);
-      console.log(`      - Rapports manquants: ${withoutReports.length} (${100 - reportPercentage}%)`);
+      console.log(
+        `      - Hippodromes "Inconnu": ${unknownHippodromes.length}`
+      );
+      console.log(
+        `      - Rapports manquants: ${withoutReports.length} (${100 - reportPercentage}%)`
+      );
       console.log(`      - URLs invalides: ${invalidUrls.length}`);
       console.log(`      - Champs manquants: ${missingFields.length}`);
       console.log(`      - Doublons: ${ids.length - uniqueIds.size}`);
       console.log(`      - Codes pays invalides: ${invalidCountries.length}`);
-
     } catch (error) {
       console.error(`   ❌ Erreur lors du test: ${error.message}`);
       totalFailed++;
@@ -268,9 +275,10 @@ async function testCompleteVerification() {
   console.log(`Tests effectués: ${totalTests}`);
   console.log(`Tests réussis: ${totalPassed}`);
   console.log(`Tests échoués: ${totalFailed}`);
-  console.log(`Taux de réussite: ${Math.round((totalPassed / (totalPassed + totalFailed)) * 100)}%`);
+  console.log(
+    `Taux de réussite: ${Math.round((totalPassed / (totalPassed + totalFailed)) * 100)}%`
+  );
 }
 
 // Exécuter les tests
 testCompleteVerification().catch(console.error);
-
