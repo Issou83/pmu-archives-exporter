@@ -233,10 +233,10 @@ export default async function handler(req, res) {
           console.log(`[API] Rapports d'arrivée activés (${totalMonths} mois, filtres spécifiques: ${hasSpecificFilters})`);
         }
         
-        // CORRECTION TIMEOUT : Ajouter un timeout global de 58 secondes pour laisser une marge
-        // Vercel a une limite de 60 secondes, on s'arrête à 58 pour éviter le timeout
-        // Augmenté à 58s pour permettre le scraping des rapports d'arrivée (c'est le but des recherches !)
-        const SCRAPING_TIMEOUT = 58000; // 58 secondes
+        // CORRECTION TIMEOUT : Ajouter un timeout global de 57 secondes pour laisser une marge
+        // Vercel a une limite de 60 secondes, on s'arrête à 57 pour éviter le timeout
+        // Réduit à 57s pour laisser plus de marge et éviter les timeouts 504
+        const SCRAPING_TIMEOUT = 57000; // 57 secondes
         
         const scrapingPromise = scrapeTurfFrArchives(years, months, includeArrivalReports);
         const timeoutPromise = new Promise((_, reject) => {

@@ -1479,10 +1479,10 @@ async function scrapeArrivalReportFromUrl(url, robotsRules = null) {
   }
 
   try {
-    // OPTIMISATION : Timeout réduit à 2 secondes par requête pour améliorer la performance globale
-    // Réduction supplémentaire pour éviter les timeouts globaux
+    // OPTIMISATION : Timeout réduit à 1.5 secondes par requête pour améliorer la performance globale
+    // Réduction agressive pour éviter les timeouts globaux (58s limite Vercel)
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2000);
+    const timeoutId = setTimeout(() => controller.abort(), 1500);
 
     let response;
     try {
@@ -1953,15 +1953,16 @@ export async function scrapeTurfFrArchives(
     console.log(`[Scraper] Début scraping des rapports d'arrivée...`);
     // OPTIMISATION : Batch size adaptatif selon le crawl-delay et le nombre de réunions
     // Pour éviter les timeouts, réduire le batch size si trop de réunions
+    // AUGMENTATION : Batch size plus agressif pour compenser timeout réduit (2s)
     let adaptiveBatchSize =
-      crawlDelay < 1000 ? 25 : crawlDelay < 2000 ? 18 : 15;
+      crawlDelay < 1000 ? 30 : crawlDelay < 2000 ? 22 : 18;
 
     // OPTIMISATION : Si beaucoup de réunions, réduire le batch size pour éviter timeout
-    // Mais augmenter le batch size de base pour compenser le timeout réduit par requête
-    if (uniqueReunions.length > 200) {
-      adaptiveBatchSize = Math.max(15, Math.floor(adaptiveBatchSize * 0.75));
-    } else if (uniqueReunions.length > 150) {
-      adaptiveBatchSize = Math.max(18, Math.floor(adaptiveBatchSize * 0.85));
+    // Mais garder un batch size élevé pour maximiser le parallélisme
+    if (uniqueReunions.length > 220) {
+      adaptiveBatchSize = Math.max(18, Math.floor(adaptiveBatchSize * 0.8));
+    } else if (uniqueReunions.length > 180) {
+      adaptiveBatchSize = Math.max(20, Math.floor(adaptiveBatchSize * 0.85));
     }
 
     const BATCH_SIZE = adaptiveBatchSize;
