@@ -290,6 +290,10 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
     );
   }
 
+  // CORRECTION : Déclarer datesScrapedFromPages et MAX_DATES_FROM_PAGES au début de la fonction
+  const MAX_DATES_FROM_PAGES = 20; // Limite pour éviter les timeouts
+  let datesScrapedFromPages = 0; // Compteur pour limiter le scraping depuis pages individuelles
+
   try {
     // OPTIMISATION TIMEOUT : Timeout de 10 secondes pour la page d'archives (au lieu de pas de timeout)
     const controller = new AbortController();
@@ -346,30 +350,40 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
     const $reunionContainers = $(
       '.liste_reunions, .archivesCourses, .bloc_archive_liste_mois, [class*="reunion"], [class*="archive"]'
     );
-    
+
     // DEBUG : Vérifier si les conteneurs existent
-    console.log(`[Scraper] DEBUG: Conteneurs trouvés: ${$reunionContainers.length}`);
-    
+    console.log(
+      `[Scraper] DEBUG: Conteneurs trouvés: ${$reunionContainers.length}`
+    );
+
     // DEBUG : Vérifier si les liens existent
     const allLinksForDebug = $('a').toArray();
-    console.log(`[Scraper] DEBUG: Total liens sur la page: ${allLinksForDebug.length}`);
-    
+    console.log(
+      `[Scraper] DEBUG: Total liens sur la page: ${allLinksForDebug.length}`
+    );
+
     // DEBUG : Vérifier les patterns
     let patternMatches = 0;
     for (const elem of allLinksForDebug) {
       const $link = $(elem);
       const href = $link.attr('href');
       if (href) {
-        const isReunionUrl = reunionUrlPatterns.some((pattern) => pattern.test(href));
+        const isReunionUrl = reunionUrlPatterns.some((pattern) =>
+          pattern.test(href)
+        );
         if (isReunionUrl) {
           patternMatches++;
           if (patternMatches <= 3) {
-            console.log(`[Scraper] DEBUG: Lien matché ${patternMatches}: ${href}`);
+            console.log(
+              `[Scraper] DEBUG: Lien matché ${patternMatches}: ${href}`
+            );
           }
         }
       }
     }
-    console.log(`[Scraper] DEBUG: Liens matchant les patterns: ${patternMatches}`);
+    console.log(
+      `[Scraper] DEBUG: Liens matchant les patterns: ${patternMatches}`
+    );
 
     let foundLinks = 0;
     const processedUrls = new Set(); // Pour éviter les doublons
