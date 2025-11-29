@@ -1282,21 +1282,12 @@ export async function scrapeTurfFrArchives(
     const BATCH_SIZE = adaptiveBatchSize;
     console.log(`[Scraper] Batch size: ${BATCH_SIZE} (crawl-delay: ${crawlDelay}ms)`);
     
-    // OPTIMISATION : Limiter le nombre de réunions scrapées si trop nombreuses
-    // Pour éviter les timeouts, limiter à 20 réunions max pour les rapports
-    // Avec batch size de 6-12, 20 réunions = 2-3 batches = ~15-20 secondes max
-    const maxReunionsForReports = 20;
-    const reunionsToScrape = uniqueReunions.length > maxReunionsForReports 
-      ? uniqueReunions.slice(0, maxReunionsForReports)
-      : uniqueReunions;
+    // CORRECTION : Ne PAS limiter le nombre de réunions - C'EST LE BUT DES RECHERCHES !
+    // Les rapports doivent être scrapés pour TOUTES les réunions
+    // On optimise avec batch size et timeout réduits au lieu de limiter
+    const reunionsToScrape = uniqueReunions;
     
-    if (uniqueReunions.length > maxReunionsForReports) {
-      console.log(`[Scraper] Limitation: ${uniqueReunions.length} réunions → ${maxReunionsForReports} pour les rapports (évite timeout)`);
-      // Marquer les autres comme "Non disponible"
-      for (let i = maxReunionsForReports; i < uniqueReunions.length; i++) {
-        uniqueReunions[i].arrivalReport = 'Non disponible';
-      }
-    }
+    console.log(`[Scraper] Scraping des rapports pour TOUTES les ${uniqueReunions.length} réunions (c'est le but des recherches !)`);
 
     for (let i = 0; i < reunionsToScrape.length; i += BATCH_SIZE) {
       const batch = reunionsToScrape.slice(i, i + BATCH_SIZE);
