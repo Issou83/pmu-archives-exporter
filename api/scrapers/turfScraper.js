@@ -175,12 +175,14 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
     const processedUrls = new Set(); // Pour éviter les doublons
 
     // Méthode 1a : Chercher dans les conteneurs de réunions
-    $reunionContainers.find('a').each((i, elem) => {
+    // CORRECTION : Convertir en boucle for pour supporter await
+    const links = $reunionContainers.find('a').toArray();
+    for (const elem of links) {
       const $link = $(elem);
       const linkText = $link.text().trim();
       const href = $link.attr('href');
 
-      if (!href || processedUrls.has(href)) return;
+      if (!href || processedUrls.has(href)) continue;
 
       // Vérifier si l'URL correspond à un pattern de réunion
       const isReunionUrl = reunionUrlPatterns.some((pattern) =>
@@ -307,15 +309,17 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
           }
         }
       }
-    });
+    }
 
     // Méthode 1b : Chercher tous les liens avec patterns d'URL de réunion
-    $('a').each((i, elem) => {
+    // CORRECTION : Convertir en boucle for pour supporter await
+    const allLinks = $('a').toArray();
+    for (const elem of allLinks) {
       const $link = $(elem);
       const linkText = $link.text().trim();
       const href = $link.attr('href');
 
-      if (!href || processedUrls.has(href)) return;
+      if (!href || processedUrls.has(href)) continue;
 
       // Vérifier si l'URL correspond à un pattern de réunion
       const isReunionUrl = reunionUrlPatterns.some((pattern) =>
