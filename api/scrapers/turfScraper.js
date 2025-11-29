@@ -196,14 +196,27 @@ async function scrapeHippodromeFromReunionPage(reunionUrl, robotsRules = null) {
       const h1Text = $h1.first().text();
       // Patterns pour extraire l'hippodrome depuis H1
       // Ex: "Partants PMU du lundi 01 janvier 2024 à VINCENNES"
-      const h1Match = h1Text.match(/à\s+([A-ZÀ-Ÿ][A-ZÀ-Ÿ\s\-]+?)(?:\s|$|,|\.)/i);
+      const h1Match = h1Text.match(
+        /à\s+([A-ZÀ-Ÿ][A-ZÀ-Ÿ\s\-]+?)(?:\s|$|,|\.)/i
+      );
       if (h1Match) {
         const extracted = h1Match[1].trim();
         // Vérifier si c'est un hippodrome connu
         const knownHippodromes = [
-          'VINCENNES', 'CAGNES', 'LONGCHAMP', 'CHANTILLY', 'DEAUVILLE',
-          'AUTEUIL', 'ENGHIEN', 'PAU', 'SAINT-MALO', 'MONT-DE-MARSAN',
-          'HYERES', 'CABOURG', 'VINCENNES', 'CAGNES SUR MER',
+          'VINCENNES',
+          'CAGNES',
+          'LONGCHAMP',
+          'CHANTILLY',
+          'DEAUVILLE',
+          'AUTEUIL',
+          'ENGHIEN',
+          'PAU',
+          'SAINT-MALO',
+          'MONT-DE-MARSAN',
+          'HYERES',
+          'CABOURG',
+          'VINCENNES',
+          'CAGNES SUR MER',
         ];
         for (const h of knownHippodromes) {
           if (extracted.toUpperCase().includes(h)) {
@@ -226,7 +239,9 @@ async function scrapeHippodromeFromReunionPage(reunionUrl, robotsRules = null) {
     if ($title.length > 0) {
       const titleText = $title.text();
       // Ex: "Réunion PMU Vincennes 2024"
-      const titleMatch = titleText.match(/PMU\s+([A-ZÀ-Ÿ][A-ZÀ-Ÿ\s\-]+?)(?:\s+\d{4}|$)/i);
+      const titleMatch = titleText.match(
+        /PMU\s+([A-ZÀ-Ÿ][A-ZÀ-Ÿ\s\-]+?)(?:\s+\d{4}|$)/i
+      );
       if (titleMatch) {
         const extracted = titleMatch[1].trim();
         if (extracted.length > 3 && !extracted.toLowerCase().includes('prix')) {
@@ -588,14 +603,14 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
           const hippodromeFromText = textMatch
             ? (textMatch[2] || textMatch[1]).trim()
             : '';
-          
+
           // AMÉLIORATION : Améliorer l'extraction de l'hippodrome depuis l'URL
           let hippodrome = hippodromeFromText || hippodromeFromUrl;
-          
+
           const fullUrl = href.startsWith('http')
             ? href
             : `https://www.turf-fr.com${href}`;
-          
+
           // Si on a un hippodrome depuis l'URL mais qu'il est incomplet, essayer de l'améliorer
           if ((!hippodrome || hippodrome.length < 10) && hippodromeFromUrl) {
             // Chercher dans le contexte de la page pour compléter
@@ -603,7 +618,7 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
               '.liste_reunions, .archivesCourses, .bloc_archive_liste_mois, div, article, section'
             );
             const containerText = $container.text();
-            
+
             // Hippodromes connus avec variations
             const hippodromes = [
               { pattern: /cagnes\s+sur\s+mer/i, name: 'Cagnes Sur Mer' },
@@ -619,7 +634,7 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
               { pattern: /ger[-\s]?gelsenkirchen/i, name: 'Ger-Gelsenkirchen' },
               { pattern: /spa[-\s]?son[-\s]?pardo/i, name: 'Spa-Son Pardo' },
             ];
-            
+
             for (const h of hippodromes) {
               if (h.pattern.test(containerText)) {
                 hippodrome = h.name;
@@ -627,7 +642,7 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
               }
             }
           }
-          
+
           // AMÉLIORATION : Si toujours pas trouvé et que l'URL contient un prix,
           // essayer de scraper l'hippodrome depuis la page individuelle
           if ((!hippodrome || hippodrome.length < 2) && fullUrl) {
@@ -650,7 +665,7 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
               }
             }
           }
-          
+
           // Si toujours pas trouvé, utiliser "Inconnu" mais avec un log
           if (!hippodrome || hippodrome.length < 2) {
             console.log(
@@ -715,9 +730,11 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
               if (dateFromPage) {
                 // VALIDATION : Vérifier que la date correspond à l'année et au mois attendus
                 const expectedYear = parseInt(year);
-                const monthIndex = MONTHS.findIndex((m) => m.slug === monthSlug);
+                const monthIndex = MONTHS.findIndex(
+                  (m) => m.slug === monthSlug
+                );
                 const expectedMonth = monthIndex !== -1 ? monthIndex + 1 : null;
-                
+
                 if (
                   dateFromPage.year === expectedYear &&
                   dateFromPage.month === expectedMonth
@@ -1161,7 +1178,7 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
               const expectedYear = parseInt(year);
               const monthIndex = MONTHS.findIndex((m) => m.slug === monthSlug);
               const expectedMonth = monthIndex !== -1 ? monthIndex + 1 : null;
-              
+
               if (
                 dateFromPage.year === expectedYear &&
                 dateFromPage.month === expectedMonth

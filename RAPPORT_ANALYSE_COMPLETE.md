@@ -9,6 +9,7 @@ Ce rapport documente l'analyse complète de l'application PMU Archives Exporter,
 ## 1. Analyse de la Structure HTML Réelle
 
 ### 1.1 Pages d'Archives
+
 - **URL testée** : `https://www.turf-fr.com/archives/courses-pmu/2024/janvier`
 - **Conteneurs trouvés** :
   - `.liste_reunions` : 388 éléments
@@ -20,6 +21,7 @@ Ce rapport documente l'analyse complète de l'application PMU Archives Exporter,
 - **Liens matchant les patterns** : 496-582 liens selon les mois
 
 ### 1.2 Pages de Réunion Individuelle
+
 - **Structure de la date** :
   - H1 : Contient généralement la date de la réunion (ex: "Partants PMU du lundi 01 janvier 2024 à VINCENNES")
   - Title : Peut contenir la date mais parfois avec des incohérences
@@ -30,6 +32,7 @@ Ce rapport documente l'analyse complète de l'application PMU Archives Exporter,
   - Extrait depuis le contexte de la page
 
 ### 1.3 Pages avec Rapport d'Arrivée
+
 - **Format du rapport** : "Arrivée \n 7 - 8 - 6 - 4 - 11" (avec espaces multiples et retours à la ligne)
 - **Localisation** :
   - `#decompte_depart_course` : Le plus fiable
@@ -41,10 +44,12 @@ Ce rapport documente l'analyse complète de l'application PMU Archives Exporter,
 ### 2.1 Dates Incorrectes
 
 **Problème** :
+
 - 5 réunions avec dates invalides (2025-11-29, 2025-12-03) extraites depuis des widgets
 - Dates extraites depuis `[class*="date"]` qui contiennent parfois des dates de widgets ou d'anciennes pages
 
 **Corrections apportées** :
+
 1. **Priorisation des sources** :
    - PRIORITÉ 1 : H1 (le plus fiable)
    - PRIORITÉ 2 : Title
@@ -62,14 +67,16 @@ Ce rapport documente l'analyse complète de l'application PMU Archives Exporter,
 ### 2.2 Hippodromes "Inconnu"
 
 **Problème** :
+
 - 7 réunions avec hippodromes "Inconnu"
 - Extraction incomplète depuis les URLs ou le texte
 
 **Corrections apportées** :
+
 1. **Amélioration de l'extraction depuis l'URL** :
    - Support des hippodromes composés (ex: "saint-malo", "che-avenches")
    - Capitalisation correcte des noms
-   - Gestion des cas spéciaux (Ger-*, GB-*, USA-*)
+   - Gestion des cas spéciaux (Ger-_, GB-_, USA-\*)
 
 2. **Recherche dans le contexte** :
    - Si l'hippodrome n'est pas trouvé dans l'URL, recherche dans le conteneur parent
@@ -81,9 +88,11 @@ Ce rapport documente l'analyse complète de l'application PMU Archives Exporter,
 ### 2.3 Parsing des Rapports d'Arrivée
 
 **Problème** :
+
 - "11-6-4-5-1" était parsé comme "1-1-6-4-5-1" (cassage des nombres à plusieurs chiffres)
 
 **Corrections apportées** :
+
 1. **Utilisation d'un séparateur temporaire** :
    - Remplacement des tirets et espaces par un séparateur temporaire `|`
    - Split sur le séparateur pour préserver les nombres complets
@@ -95,9 +104,11 @@ Ce rapport documente l'analyse complète de l'application PMU Archives Exporter,
 ### 2.4 Timeouts
 
 **Problème** :
+
 - Timeouts 504 lors du scraping de plusieurs mois ou de nombreuses réunions
 
 **Corrections apportées** :
+
 1. **Limite du scraping de dates** :
    - `MAX_DATES_FROM_PAGES` réduit de 20 à 5
    - Timeout de 2 secondes par requête de date
@@ -112,9 +123,11 @@ Ce rapport documente l'analyse complète de l'application PMU Archives Exporter,
 ### 2.5 Variable Non Définie
 
 **Problème** :
+
 - `ReferenceError: datesScrapedFromPages is not defined`
 
 **Corrections apportées** :
+
 - Déclaration de `datesScrapedFromPages` et `MAX_DATES_FROM_PAGES` au début de `scrapeMonthPage`
 
 ## 3. Tests Effectués
@@ -122,6 +135,7 @@ Ce rapport documente l'analyse complète de l'application PMU Archives Exporter,
 ### 3.1 Test de Parsing des Rapports d'Arrivée
 
 **Résultats** :
+
 - ✅ "11-6-4-5-1" → "11-6-4-5-1" (correct)
 - ✅ "7-8-6-4-11" → "7-8-6-4-11" (correct)
 - ✅ "11 - 6 - 4 - 5 - 1" → "11-6-4-5-1" (correct)
@@ -132,6 +146,7 @@ Ce rapport documente l'analyse complète de l'application PMU Archives Exporter,
 ### 3.2 Test d'Extraction des Dates
 
 **Résultats** :
+
 - ✅ "lundi 15 janvier 2024" → "2024-01-15" (correct)
 - ✅ "15 janvier 2024" → "2024-01-15" (correct)
 - ✅ "1 janvier 2024" → "2024-01-01" (correct)
@@ -141,6 +156,7 @@ Ce rapport documente l'analyse complète de l'application PMU Archives Exporter,
 ### 3.3 Test de l'API (Janvier 2024)
 
 **Résultats** :
+
 - ✅ 216 réunions trouvées
 - ✅ Toutes les réunions ont les champs requis
 - ⚠️ 5 réunions avec dates invalides (corrigé)
@@ -265,4 +281,3 @@ L'application a été analysée en profondeur et toutes les corrections nécessa
 5. ✅ **Véracité des données** : Validation contre les sources réelles
 
 L'application est maintenant plus fiable, plus performante, et produit des données vérifiées et complètes.
-

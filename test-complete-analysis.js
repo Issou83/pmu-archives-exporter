@@ -9,7 +9,8 @@ import * as cheerio from 'cheerio';
 const TEST_URLS = {
   archivePage: 'https://www.turf-fr.com/archives/courses-pmu/2024/janvier',
   reunionPage: 'https://www.turf-fr.com/partants-programmes/r1-vincennes-36237',
-  arrivalPage: 'https://www.turf-fr.com/courses-pmu/arrivees-rapports/r1-vincennes-36237',
+  arrivalPage:
+    'https://www.turf-fr.com/courses-pmu/arrivees-rapports/r1-vincennes-36237',
 };
 
 /**
@@ -24,9 +25,11 @@ async function analyzeArchivePage() {
 
     // 1. Structure des liens de réunion
     console.log('\n1. STRUCTURE DES LIENS DE REUNION:');
-    const reunionLinks = $('a[href*="/partants-programmes/"], a[href*="/courses-pmu/"]');
+    const reunionLinks = $(
+      'a[href*="/partants-programmes/"], a[href*="/courses-pmu/"]'
+    );
     console.log(`   Total liens trouvés: ${reunionLinks.length}`);
-    
+
     const sampleLinks = reunionLinks.slice(0, 5);
     sampleLinks.each((i, elem) => {
       const $link = $(elem);
@@ -42,7 +45,7 @@ async function analyzeArchivePage() {
       /(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\s+(\d{1,2})\s+(janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)\s+(\d{4})/i,
       /(\d{1,2})\s+(janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)\s+(\d{4})/i,
     ];
-    
+
     const pageText = $('body').text();
     const dates = [];
     for (const pattern of datePatterns) {
@@ -65,16 +68,15 @@ async function analyzeArchivePage() {
       '[class*="reunion"]',
       '[class*="archive"]',
     ];
-    
+
     containers.forEach((selector) => {
       const $container = $(selector);
       if ($container.length > 0) {
         console.log(`   ${selector}: ${$container.length} éléments`);
       }
     });
-
   } catch (error) {
-    console.error('Erreur lors de l\'analyse:', error.message);
+    console.error("Erreur lors de l'analyse:", error.message);
   }
 }
 
@@ -97,7 +99,7 @@ async function analyzeReunionPage() {
       '#date',
       'title',
     ];
-    
+
     dateSelectors.forEach((selector) => {
       const $elem = $(selector);
       if ($elem.length > 0) {
@@ -109,7 +111,7 @@ async function analyzeReunionPage() {
     });
 
     // 2. Structure de l'hippodrome
-    console.log('\n2. STRUCTURE DE L\'HIPPODROME:');
+    console.log("\n2. STRUCTURE DE L'HIPPODROME:");
     const title = $('title').text();
     const h1 = $('h1').text();
     console.log(`   Title: ${title}`);
@@ -122,9 +124,8 @@ async function analyzeReunionPage() {
     if (matches) {
       console.log(`   Numéro trouvé: R${matches[1]}`);
     }
-
   } catch (error) {
-    console.error('Erreur lors de l\'analyse:', error.message);
+    console.error("Erreur lors de l'analyse:", error.message);
   }
 }
 
@@ -139,8 +140,8 @@ async function analyzeArrivalPage() {
     const $ = cheerio.load(html);
 
     // 1. Structure du rapport d'arrivée
-    console.log('\n1. STRUCTURE DU RAPPORT D\'ARRIVEE:');
-    
+    console.log("\n1. STRUCTURE DU RAPPORT D'ARRIVEE:");
+
     // Chercher dans les éléments avec classe/ID contenant "arrivée"
     const arrivalSelectors = [
       '[class*="arrivée"]',
@@ -150,7 +151,7 @@ async function analyzeArrivalPage() {
       '.arrivee',
       '#arrivee',
     ];
-    
+
     arrivalSelectors.forEach((selector) => {
       const $elem = $(selector);
       if ($elem.length > 0) {
@@ -163,16 +164,17 @@ async function analyzeArrivalPage() {
 
     // Chercher dans le body
     const bodyText = $('body').text();
-    const arrivalMatches = bodyText.match(/arrivée[ée\s\n:]*(\d+(?:\s*[-–]?\s*\d+){2,})/gi);
+    const arrivalMatches = bodyText.match(
+      /arrivée[ée\s\n:]*(\d+(?:\s*[-–]?\s*\d+){2,})/gi
+    );
     if (arrivalMatches) {
       console.log(`   Rapports trouvés dans body: ${arrivalMatches.length}`);
       arrivalMatches.slice(0, 3).forEach((match, i) => {
         console.log(`   Match ${i + 1}: ${match}`);
       });
     }
-
   } catch (error) {
-    console.error('Erreur lors de l\'analyse:', error.message);
+    console.error("Erreur lors de l'analyse:", error.message);
   }
 }
 
@@ -181,7 +183,7 @@ async function analyzeArrivalPage() {
  */
 function testArrivalReportParsing() {
   console.log('\n=== TEST PARSING RAPPORTS ARRIVEE ===');
-  
+
   const testCases = [
     '11-6-4-5-1',
     '7-8-6-4-11',
@@ -199,17 +201,17 @@ function testArrivalReportParsing() {
       .replace(/\s*[-–]\s*/g, '|')
       .replace(/\s+/g, '|')
       .replace(/\|+/g, '|');
-    
+
     const numbers = candidate
       .split('|')
       .map((n) => n.trim())
       .filter((n) => n.match(/^\d+$/));
-    
+
     const validNumbers = numbers.filter((n) => {
       const num = parseInt(n);
       return num >= 1 && num <= 30;
     });
-    
+
     const result = validNumbers.length >= 3 ? validNumbers.join('-') : null;
     console.log(`   Input: "${testCase}" -> Output: ${result || 'NULL'}`);
   });
@@ -220,7 +222,7 @@ function testArrivalReportParsing() {
  */
 function testDateExtraction() {
   console.log('\n=== TEST EXTRACTION DATES ===');
-  
+
   const testCases = [
     'lundi 15 janvier 2024',
     '15 janvier 2024',
@@ -233,12 +235,22 @@ function testDateExtraction() {
   testCases.forEach((testCase) => {
     // Simuler le parsing
     const monthNames = {
-      janvier: 1, février: 2, mars: 3, avril: 4, mai: 5, juin: 6,
-      juillet: 7, août: 8, septembre: 9, octobre: 10, novembre: 11, décembre: 12,
+      janvier: 1,
+      février: 2,
+      mars: 3,
+      avril: 4,
+      mai: 5,
+      juin: 6,
+      juillet: 7,
+      août: 8,
+      septembre: 9,
+      octobre: 10,
+      novembre: 11,
+      décembre: 12,
     };
-    
+
     let result = null;
-    
+
     // Pattern 1: Date complète
     const fullDateMatch = testCase.match(
       /(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)?\s*(\d{1,2})\s+(janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)\s+(\d{4})/i
@@ -252,10 +264,12 @@ function testDateExtraction() {
         result = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
       }
     }
-    
+
     // Pattern 2: Date avec slash
     if (!result) {
-      const slashDateMatch = testCase.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+      const slashDateMatch = testCase.match(
+        /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/
+      );
       if (slashDateMatch) {
         const part1 = parseInt(slashDateMatch[1]);
         const part2 = parseInt(slashDateMatch[2]);
@@ -276,7 +290,7 @@ function testDateExtraction() {
         }
       }
     }
-    
+
     console.log(`   Input: "${testCase}" -> Output: ${result || 'NULL'}`);
   });
 }
@@ -285,16 +299,15 @@ function testDateExtraction() {
  * Fonction principale
  */
 async function main() {
-  console.log('=== ANALYSE COMPLETE DE L\'APPLICATION ===\n');
-  
+  console.log("=== ANALYSE COMPLETE DE L'APPLICATION ===\n");
+
   await analyzeArchivePage();
   await analyzeReunionPage();
   await analyzeArrivalPage();
   testArrivalReportParsing();
   testDateExtraction();
-  
+
   console.log('\n=== ANALYSE TERMINEE ===');
 }
 
 main().catch(console.error);
-
