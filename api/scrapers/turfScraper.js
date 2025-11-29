@@ -62,10 +62,20 @@ function parseDate(dateText) {
   if (!dateText) return null;
 
   const monthNames = {
-    'janvier': 1, 'février': 2, 'mars': 3, 'avril': 4, 'mai': 5, 'juin': 6,
-    'juillet': 7, 'août': 8, 'septembre': 9, 'octobre': 10, 'novembre': 11, 'décembre': 12
+    janvier: 1,
+    février: 2,
+    mars: 3,
+    avril: 4,
+    mai: 5,
+    juin: 6,
+    juillet: 7,
+    août: 8,
+    septembre: 9,
+    octobre: 10,
+    novembre: 11,
+    décembre: 12,
   };
-  
+
   // Pattern 1: "lundi 15 janvier 2024" ou "15 janvier 2024"
   const fullDateMatch = dateText.match(
     /(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)?\s*(\d{1,2})\s+(janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)\s+(\d{4})/i
@@ -75,7 +85,7 @@ function parseDate(dateText) {
     const monthName = fullDateMatch[2].toLowerCase();
     const year = parseInt(fullDateMatch[3]);
     const month = monthNames[monthName];
-    
+
     if (month) {
       const monthIndex = month - 1;
       const date = new Date(year, monthIndex, day);
@@ -88,14 +98,16 @@ function parseDate(dateText) {
       };
     }
   }
-  
+
   // Pattern 2: "15/01/2024" ou "01/15/2024"
-  const slashDateMatch = dateText.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+  const slashDateMatch = dateText.match(
+    /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/
+  );
   if (slashDateMatch) {
     const part1 = parseInt(slashDateMatch[1]);
     const part2 = parseInt(slashDateMatch[2]);
     const year = parseInt(slashDateMatch[3]);
-    
+
     // Déterminer si c'est DD/MM/YYYY ou MM/DD/YYYY
     let day, month;
     if (part1 > 12) {
@@ -111,7 +123,7 @@ function parseDate(dateText) {
       day = part1;
       month = part2;
     }
-    
+
     if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
       const monthIndex = month - 1;
       const date = new Date(year, monthIndex, day);
@@ -202,7 +214,7 @@ async function scrapeDateFromReunionPage(reunionUrl, robotsRules = null) {
         if (dateText) return false;
         const $elem = $(elem);
         const text = $elem.text();
-        
+
         for (const pattern of datePatterns) {
           const match = text.match(pattern);
           if (match) {
@@ -282,7 +294,7 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
     // OPTIMISATION TIMEOUT : Timeout de 10 secondes pour la page d'archives (au lieu de pas de timeout)
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 secondes max
-    
+
     let response;
     try {
       response = await fetch(url, {
@@ -301,7 +313,9 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
       clearTimeout(timeoutId);
       if (error.name === 'AbortError') {
         console.error(`[Scraper] Timeout (10s) pour ${url}`);
-        throw new Error(`Timeout lors du chargement de la page d'archives: ${url}`);
+        throw new Error(
+          `Timeout lors du chargement de la page d'archives: ${url}`
+        );
       }
       throw error;
     }
@@ -319,10 +333,13 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
 
     // Méthode 1 : Chercher les liens vers les réunions
     // Patterns détectés : /courses-pmu/arrivees-rapports/r1-... ou /partants-programmes/r1-...
+    // CORRECTION : Accepter aussi les URLs complètes (https://www.turf-fr.com/...)
     const reunionUrlPatterns = [
       /\/courses-pmu\/(arrivees-rapports|partants|pronostics)\/r\d+/i,
       /\/partants-programmes\/r\d+/i,
       /\/courses-pmu\/.*\/r\d+/i,
+      /(?:https?:\/\/)?(?:www\.)?turf-fr\.com\/partants-programmes\/r\d+/i,
+      /(?:https?:\/\/)?(?:www\.)?turf-fr\.com\/courses-pmu\/.*\/r\d+/i,
     ];
 
     // Chercher aussi dans les éléments avec classes pertinentes
@@ -351,7 +368,7 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
       // Vérifier si le texte contient un pattern de réunion (R1, R2, etc.)
       // CORRECTION : Ajouter "VOIR CETTE REUNION" qui est le texte standard des liens
       const hasReunionPattern =
-        /R\d+/i.test(linkText) || 
+        /R\d+/i.test(linkText) ||
         /réunion\s*\d+/i.test(linkText) ||
         /voir\s+cette\s+réunion/i.test(linkText);
 
@@ -372,7 +389,9 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
             ? urlMatch[1]
             : textMatch
               ? textMatch[1] || textMatch[2]
-              : (isReunionUrl ? (href.match(/r(\d+)[\-_]/i)?.[1] || '1') : '1');
+              : isReunionUrl
+                ? href.match(/r(\d+)[\-_]/i)?.[1] || '1'
+                : '1';
           const hippodromeFromUrl = urlMatch
             ? urlMatch[2].replace(/[-_]/g, ' ')
             : '';
@@ -392,14 +411,17 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
             '.liste_reunions, .archivesCourses, .bloc_archive_liste_mois, div, article, section'
           );
           let containerText = $container.text();
-          
+
           // 2. Chercher aussi dans les éléments parents et frères
           const $parent = $link.parent();
           const $siblings = $parent.siblings();
-          const nearbyText = $parent.text() + ' ' + $siblings.text() + ' ' + containerText;
-          
+          const nearbyText =
+            $parent.text() + ' ' + $siblings.text() + ' ' + containerText;
+
           // 3. Chercher dans toute la section de la page (plus large)
-          const $section = $container.closest('section, article, .archive-section, .month-section');
+          const $section = $container.closest(
+            'section, article, .archive-section, .month-section'
+          );
           const sectionText = $section.length > 0 ? $section.text() : '';
 
           let dateText = '';
@@ -422,26 +444,40 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
           }
 
           let dateInfo = parseDate(dateText);
-          
+
           // CORRECTION : Si la date n'est pas trouvée sur la page d'archives,
           // essayer de la scraper depuis la page individuelle de la réunion
           // OPTIMISATION : Limiter le nombre de requêtes pour éviter les timeouts
           if (!dateInfo && datesScrapedFromPages < MAX_DATES_FROM_PAGES) {
-            console.log(`[Scraper] Date non trouvée sur page archives pour ${fullUrl}, tentative depuis page individuelle...`);
+            console.log(
+              `[Scraper] Date non trouvée sur page archives pour ${fullUrl}, tentative depuis page individuelle...`
+            );
             datesScrapedFromPages++;
             try {
-              const dateFromPage = await scrapeDateFromReunionPage(fullUrl, robotsRules);
+              const dateFromPage = await scrapeDateFromReunionPage(
+                fullUrl,
+                robotsRules
+              );
               if (dateFromPage) {
                 dateInfo = dateFromPage;
-                console.log(`[Scraper] Date trouvée sur page individuelle: ${dateInfo.dateISO}`);
+                console.log(
+                  `[Scraper] Date trouvée sur page individuelle: ${dateInfo.dateISO}`
+                );
               }
             } catch (error) {
-              console.log(`[Scraper] Erreur lors du scraping de la date depuis ${fullUrl}: ${error.message}`);
+              console.log(
+                `[Scraper] Erreur lors du scraping de la date depuis ${fullUrl}: ${error.message}`
+              );
             }
-          } else if (!dateInfo && datesScrapedFromPages >= MAX_DATES_FROM_PAGES) {
-            console.log(`[Scraper] Limite atteinte (${MAX_DATES_FROM_PAGES}) pour scraping dates depuis pages individuelles`);
+          } else if (
+            !dateInfo &&
+            datesScrapedFromPages >= MAX_DATES_FROM_PAGES
+          ) {
+            console.log(
+              `[Scraper] Limite atteinte (${MAX_DATES_FROM_PAGES}) pour scraping dates depuis pages individuelles`
+            );
           }
-          
+
           if (!dateInfo) {
             // Utiliser le premier jour du mois comme fallback UNIQUEMENT si vraiment pas trouvé
             const monthIndex = MONTHS.findIndex((m) => m.slug === monthSlug);
@@ -453,7 +489,9 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
                 month: monthIndex + 1,
                 monthLabel: MONTHS[monthIndex].label,
               };
-              console.log(`[Scraper] Utilisation du fallback (1er jour du mois) pour ${fullUrl}`);
+              console.log(
+                `[Scraper] Utilisation du fallback (1er jour du mois) pour ${fullUrl}`
+              );
             }
           }
 
@@ -561,17 +599,17 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
             'spa-son-pardo': 'Spa-Son Pardo',
             'spa-son': 'Spa-Son Pardo',
             'saint-malo': 'Saint-Malo',
-            'saint': 'Saint-Malo', // Fallback pour saint-malo
+            saint: 'Saint-Malo', // Fallback pour saint-malo
             'mont-de-marsan': 'Mont-de-Marsan',
-            'mont': 'Mont-de-Marsan', // Fallback pour mont-de-marsan
+            mont: 'Mont-de-Marsan', // Fallback pour mont-de-marsan
             'che-avenches': 'Che Avenches',
-            'che': 'Che Avenches', // Fallback pour che-avenches
+            che: 'Che Avenches', // Fallback pour che-avenches
             'gb-goodwood': 'GB-Goodwood',
-            'gb': 'GB-Goodwood', // Fallback pour gb-goodwood
+            gb: 'GB-Goodwood', // Fallback pour gb-goodwood
             'usa-meadowlands': 'USA-Meadowlands',
-            'usa': 'USA-Meadowlands', // Fallback pour usa-meadowlands
-            'hyeres': 'Hyères',
-            'cabourg': 'Cabourg',
+            usa: 'USA-Meadowlands', // Fallback pour usa-meadowlands
+            hyeres: 'Hyères',
+            cabourg: 'Cabourg',
           };
 
           const extractedLower = extracted.toLowerCase();
@@ -588,19 +626,34 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
           } else if (extractedLower.startsWith('ger-')) {
             // Pour ger-*, prendre "Ger-" + le reste capitalisé
             const gerPart = extractedLower.replace(/^ger-/, '');
-            hippodrome = 'Ger-' + gerPart.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('-');
+            hippodrome =
+              'Ger-' +
+              gerPart
+                .split('-')
+                .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+                .join('-');
           } else if (extractedLower.startsWith('gb-goodwood')) {
             hippodrome = 'GB-Goodwood';
           } else if (extractedLower.startsWith('gb-')) {
             // Pour gb-*, prendre "GB-" + le reste capitalisé
             const gbPart = extractedLower.replace(/^gb-/, '');
-            hippodrome = 'GB-' + gbPart.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('-');
+            hippodrome =
+              'GB-' +
+              gbPart
+                .split('-')
+                .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+                .join('-');
           } else if (extractedLower.startsWith('usa-meadowlands')) {
             hippodrome = 'USA-Meadowlands';
           } else if (extractedLower.startsWith('usa-')) {
             // Pour usa-*, prendre "USA-" + le reste capitalisé
             const usaPart = extractedLower.replace(/^usa-/, '');
-            hippodrome = 'USA-' + usaPart.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('-');
+            hippodrome =
+              'USA-' +
+              usaPart
+                .split('-')
+                .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+                .join('-');
           } else if (extractedLower.startsWith('saint-malo')) {
             hippodrome = 'Saint-Malo';
           } else if (extractedLower.startsWith('mont-de-marsan')) {
@@ -634,11 +687,9 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
           ) {
             // Filtrer les mots ignorés et les mots qui sont des numéros
             const validWords = words.filter(
-              (w) =>
-                !ignoredWords.includes(w.toLowerCase()) &&
-                !/^\d+$/.test(w) // Exclure les numéros purs
+              (w) => !ignoredWords.includes(w.toLowerCase()) && !/^\d+$/.test(w) // Exclure les numéros purs
             );
-            
+
             if (validWords.length > 0) {
               // Prendre tous les mots valides (pas seulement 2)
               // Capitaliser chaque mot
@@ -646,7 +697,13 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
                 .map((w) => {
                   // Gérer les cas spéciaux comme "de", "du", "sur" (minuscules au milieu)
                   const lower = w.toLowerCase();
-                  if (lower === 'de' || lower === 'du' || lower === 'sur' || lower === 'le' || lower === 'la') {
+                  if (
+                    lower === 'de' ||
+                    lower === 'du' ||
+                    lower === 'sur' ||
+                    lower === 'le' ||
+                    lower === 'la'
+                  ) {
                     return lower;
                   }
                   return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
@@ -771,26 +828,37 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
         }
 
         let dateInfo = parseDate(dateText);
-        
+
         // CORRECTION : Si la date n'est pas trouvée sur la page d'archives,
         // essayer de la scraper depuis la page individuelle de la réunion
         // OPTIMISATION : Limiter le nombre de requêtes pour éviter les timeouts
         if (!dateInfo && datesScrapedFromPages < MAX_DATES_FROM_PAGES) {
-          console.log(`[Scraper] Date non trouvée sur page archives pour ${fullUrl}, tentative depuis page individuelle...`);
+          console.log(
+            `[Scraper] Date non trouvée sur page archives pour ${fullUrl}, tentative depuis page individuelle...`
+          );
           datesScrapedFromPages++;
           try {
-            const dateFromPage = await scrapeDateFromReunionPage(fullUrl, robotsRules);
+            const dateFromPage = await scrapeDateFromReunionPage(
+              fullUrl,
+              robotsRules
+            );
             if (dateFromPage) {
               dateInfo = dateFromPage;
-              console.log(`[Scraper] Date trouvée sur page individuelle: ${dateInfo.dateISO}`);
+              console.log(
+                `[Scraper] Date trouvée sur page individuelle: ${dateInfo.dateISO}`
+              );
             }
           } catch (error) {
-            console.log(`[Scraper] Erreur lors du scraping de la date depuis ${fullUrl}: ${error.message}`);
+            console.log(
+              `[Scraper] Erreur lors du scraping de la date depuis ${fullUrl}: ${error.message}`
+            );
           }
         } else if (!dateInfo && datesScrapedFromPages >= MAX_DATES_FROM_PAGES) {
-          console.log(`[Scraper] Limite atteinte (${MAX_DATES_FROM_PAGES}) pour scraping dates depuis pages individuelles`);
+          console.log(
+            `[Scraper] Limite atteinte (${MAX_DATES_FROM_PAGES}) pour scraping dates depuis pages individuelles`
+          );
         }
-        
+
         if (!dateInfo) {
           // Fallback: utiliser le premier jour du mois UNIQUEMENT si vraiment pas trouvé
           const monthIndex = MONTHS.findIndex((m) => m.slug === monthSlug);
@@ -802,7 +870,9 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
               month: monthIndex + 1,
               monthLabel: MONTHS[monthIndex].label,
             };
-            console.log(`[Scraper] Utilisation du fallback (1er jour du mois) pour ${fullUrl}`);
+            console.log(
+              `[Scraper] Utilisation du fallback (1er jour du mois) pour ${fullUrl}`
+            );
           }
         }
 
@@ -919,10 +989,10 @@ async function scrapeArrivalReport(reunionUrl, robotsRules = null) {
   try {
     // OPTIMISATION : Essayer d'abord /arrivees-rapports/ (plus probable d'avoir le rapport)
     // puis /partants-programmes/ si pas trouvé
-    
+
     // Étape 1 : Construire l'URL /arrivees-rapports/ et essayer en premier
     let arrivalUrl = reunionUrl;
-    
+
     // Convertir différentes formes d'URLs vers /courses-pmu/arrivees-rapports/
     if (arrivalUrl.includes('/partants-programmes/')) {
       arrivalUrl = arrivalUrl.replace(
@@ -952,14 +1022,20 @@ async function scrapeArrivalReport(reunionUrl, robotsRules = null) {
 
     // Essayer /arrivees-rapports/ en premier (plus probable)
     if (arrivalUrl !== reunionUrl) {
-      const arrivalReport = await scrapeArrivalReportFromUrl(arrivalUrl, robotsRules);
+      const arrivalReport = await scrapeArrivalReportFromUrl(
+        arrivalUrl,
+        robotsRules
+      );
       if (arrivalReport) {
         return arrivalReport;
       }
     }
 
     // Étape 2 : Si pas trouvé, essayer la page originale (souvent /partants-programmes/)
-    const arrivalReport = await scrapeArrivalReportFromUrl(reunionUrl, robotsRules);
+    const arrivalReport = await scrapeArrivalReportFromUrl(
+      reunionUrl,
+      robotsRules
+    );
     if (arrivalReport) {
       return arrivalReport;
     }
@@ -1046,7 +1122,7 @@ async function scrapeArrivalReportFromUrl(url, robotsRules = null) {
       // Autre erreur réseau
       return null;
     }
-    
+
     clearTimeout(timeoutId);
 
     if (!response.ok) {
@@ -1083,7 +1159,7 @@ async function scrapeArrivalReportFromUrl(url, robotsRules = null) {
           .replace(/\|+/g, '|'); // Normaliser les séparateurs multiples
         const numbers = candidate
           .split('|')
-          .map(n => n.trim())
+          .map((n) => n.trim())
           .filter((n) => n.match(/^\d+$/));
         if (numbers.length >= 3) {
           const validNumbers = numbers.filter((n) => {
@@ -1121,7 +1197,7 @@ async function scrapeArrivalReportFromUrl(url, robotsRules = null) {
             .replace(/\|+/g, '|');
           const numbers = candidate
             .split('|')
-            .map(n => n.trim())
+            .map((n) => n.trim())
             .filter((n) => n.match(/^\d+$/));
           if (numbers.length >= 3) {
             const validNumbers = numbers.filter((n) => {
@@ -1162,7 +1238,7 @@ async function scrapeArrivalReportFromUrl(url, robotsRules = null) {
               .replace(/\|+/g, '|');
             const numbers = candidate
               .split('|')
-              .map(n => n.trim())
+              .map((n) => n.trim())
               .filter((n) => n.match(/^\d+$/));
             if (numbers.length >= 3) {
               const validNumbers = numbers.filter((n) => {
@@ -1199,7 +1275,7 @@ async function scrapeArrivalReportFromUrl(url, robotsRules = null) {
               .replace(/\|+/g, '|');
             const numbers = candidate
               .split('|')
-              .map(n => n.trim())
+              .map((n) => n.trim())
               .filter((n) => n.match(/^\d+$/));
             if (numbers.length >= 3) {
               const validNumbers = numbers.filter((n) => {
@@ -1265,7 +1341,7 @@ async function scrapeArrivalReportFromUrl(url, robotsRules = null) {
               // Vérifier que c'est un rapport valide (au moins 3 numéros)
               const numbers = candidate
                 .split('|')
-                .map(n => n.trim())
+                .map((n) => n.trim())
                 .filter((n) => n.match(/^\d+$/));
               if (numbers.length >= 3) {
                 const validNumbers = numbers.filter((n) => {
@@ -1305,7 +1381,7 @@ async function scrapeArrivalReportFromUrl(url, robotsRules = null) {
                 .replace(/\|+/g, '|');
               const numbers = candidate
                 .split('|')
-                .map(n => n.trim())
+                .map((n) => n.trim())
                 .filter((n) => n.match(/^\d+$/));
               if (numbers.length >= 3) {
                 const validNumbers = numbers.filter((n) => {
@@ -1342,7 +1418,7 @@ async function scrapeArrivalReportFromUrl(url, robotsRules = null) {
             .replace(/\|+/g, '|');
           const numbers = candidate
             .split('|')
-            .map(n => n.trim())
+            .map((n) => n.trim())
             .filter((n) => n.match(/^\d+$/));
           if (numbers.length >= 3) {
             const validNumbers = numbers.filter((n) => {
@@ -1389,7 +1465,9 @@ async function scrapeArrivalReportFromUrl(url, robotsRules = null) {
         report: arrivalReport,
         timestamp: Date.now(),
       });
-      console.log(`[Scraper] Rapport d'arrivée trouvé et mis en cache: ${url}: ${arrivalReport}`);
+      console.log(
+        `[Scraper] Rapport d'arrivée trouvé et mis en cache: ${url}: ${arrivalReport}`
+      );
     } else if (globalArrivalReportsCache && !arrivalReport) {
       // Mettre en cache les échecs aussi (pour éviter de re-scraper les pages sans rapport)
       globalArrivalReportsCache.set(url, {
@@ -1397,7 +1475,9 @@ async function scrapeArrivalReportFromUrl(url, robotsRules = null) {
         timestamp: Date.now(),
       });
     } else if (arrivalReport) {
-      console.log(`[Scraper] Rapport d'arrivée trouvé sur ${url}: ${arrivalReport}`);
+      console.log(
+        `[Scraper] Rapport d'arrivée trouvé sur ${url}: ${arrivalReport}`
+      );
     }
 
     return arrivalReport || null;
@@ -1427,7 +1507,7 @@ export async function scrapeTurfFrArchives(
   console.log(`[Scraper] Chargement de robots.txt...`);
   let robotsRules = null;
   let crawlDelay = 400; // Délai par défaut si robots.txt échoue
-  
+
   try {
     const robotsPromise = fetchRobotsTxt('https://www.turf-fr.com');
     const robotsTimeout = new Promise((_, reject) => {
@@ -1437,7 +1517,9 @@ export async function scrapeTurfFrArchives(
     crawlDelay = getCrawlDelay(robotsRules, '*');
     console.log(`[Scraper] Crawl-delay recommandé: ${crawlDelay}ms`);
   } catch (error) {
-    console.warn(`[Scraper] Impossible de charger robots.txt (timeout ou erreur), utilisation du délai par défaut: ${crawlDelay}ms`);
+    console.warn(
+      `[Scraper] Impossible de charger robots.txt (timeout ou erreur), utilisation du délai par défaut: ${crawlDelay}ms`
+    );
   }
 
   const allReunions = [];
@@ -1488,16 +1570,21 @@ export async function scrapeTurfFrArchives(
     // OPTIMISATION : Batch size adaptatif selon le crawl-delay
     // Plus le crawl-delay est court, plus on peut traiter en parallèle
     // Augmenté pour scraper plus de réunions rapidement
-    const adaptiveBatchSize = crawlDelay < 1000 ? 15 : crawlDelay < 2000 ? 10 : 8;
+    const adaptiveBatchSize =
+      crawlDelay < 1000 ? 15 : crawlDelay < 2000 ? 10 : 8;
     const BATCH_SIZE = adaptiveBatchSize;
-    console.log(`[Scraper] Batch size: ${BATCH_SIZE} (crawl-delay: ${crawlDelay}ms)`);
-    
+    console.log(
+      `[Scraper] Batch size: ${BATCH_SIZE} (crawl-delay: ${crawlDelay}ms)`
+    );
+
     // CORRECTION : Ne PAS limiter le nombre de réunions - C'EST LE BUT DES RECHERCHES !
     // Les rapports doivent être scrapés pour TOUTES les réunions
     // On optimise avec batch size et timeout réduits au lieu de limiter
     const reunionsToScrape = uniqueReunions;
-    
-    console.log(`[Scraper] Scraping des rapports pour TOUTES les ${uniqueReunions.length} réunions (c'est le but des recherches !)`);
+
+    console.log(
+      `[Scraper] Scraping des rapports pour TOUTES les ${uniqueReunions.length} réunions (c'est le but des recherches !)`
+    );
 
     for (let i = 0; i < reunionsToScrape.length; i += BATCH_SIZE) {
       const batch = reunionsToScrape.slice(i, i + BATCH_SIZE);
@@ -1505,7 +1592,10 @@ export async function scrapeTurfFrArchives(
       // OPTIMISATION : Utiliser Promise.allSettled pour ne pas bloquer sur les erreurs
       const promises = batch.map(async (reunion) => {
         try {
-          const arrivalReport = await scrapeArrivalReport(reunion.url, robotsRules);
+          const arrivalReport = await scrapeArrivalReport(
+            reunion.url,
+            robotsRules
+          );
           reunion.arrivalReport = arrivalReport;
           return { status: 'fulfilled', reunion };
         } catch (error) {
@@ -1516,12 +1606,18 @@ export async function scrapeTurfFrArchives(
 
       // Promise.allSettled continue même si certaines promesses échouent
       const results = await Promise.allSettled(promises);
-      
+
       // Compter les succès et échecs pour le logging
-      const successCount = results.filter(r => r.status === 'fulfilled').length;
-      const failureCount = results.filter(r => r.status === 'rejected').length;
+      const successCount = results.filter(
+        (r) => r.status === 'fulfilled'
+      ).length;
+      const failureCount = results.filter(
+        (r) => r.status === 'rejected'
+      ).length;
       if (failureCount > 0) {
-        console.log(`[Scraper] Batch ${Math.floor(i / BATCH_SIZE) + 1}: ${successCount} succès, ${failureCount} échecs`);
+        console.log(
+          `[Scraper] Batch ${Math.floor(i / BATCH_SIZE) + 1}: ${successCount} succès, ${failureCount} échecs`
+        );
       }
 
       // ✅ RESPECT DE ROBOTS.TXT - Utiliser le crawl-delay recommandé entre les lots
@@ -1536,7 +1632,9 @@ export async function scrapeTurfFrArchives(
         i + BATCH_SIZE >= reunionsToScrape.length
       ) {
         const progress = Math.min(i + BATCH_SIZE, reunionsToScrape.length);
-        const percentage = Math.round((progress / reunionsToScrape.length) * 100);
+        const percentage = Math.round(
+          (progress / reunionsToScrape.length) * 100
+        );
         console.log(
           `[Scraper] Rapports d'arrivée: ${progress}/${reunionsToScrape.length} (${percentage}%)`
         );
