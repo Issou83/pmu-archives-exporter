@@ -1283,8 +1283,9 @@ export async function scrapeTurfFrArchives(
     console.log(`[Scraper] Batch size: ${BATCH_SIZE} (crawl-delay: ${crawlDelay}ms)`);
     
     // OPTIMISATION : Limiter le nombre de réunions scrapées si trop nombreuses
-    // Pour éviter les timeouts, limiter à 30 réunions max pour les rapports
-    const maxReunionsForReports = 30;
+    // Pour éviter les timeouts, limiter à 20 réunions max pour les rapports
+    // Avec batch size de 6-12, 20 réunions = 2-3 batches = ~15-20 secondes max
+    const maxReunionsForReports = 20;
     const reunionsToScrape = uniqueReunions.length > maxReunionsForReports 
       ? uniqueReunions.slice(0, maxReunionsForReports)
       : uniqueReunions;
