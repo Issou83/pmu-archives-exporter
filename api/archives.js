@@ -212,19 +212,24 @@ export default async function handler(req, res) {
         setArrivalReportsCache(arrivalReportsCache, ARRIVAL_REPORTS_CACHE_TTL);
         
         // CORRECTION : Réactiver les rapports d'arrivée avec une logique équilibrée
-        // Le timeout global de 50s protège, mais on limite pour éviter les timeouts
+        // Le timeout global de 55s protège, mais on limite pour éviter les timeouts
         const totalMonths = years.length * months.length;
         
         // Activer les rapports d'arrivée si :
         // 1. Exactement 1 mois (le plus sûr)
-        // 2. OU 2 mois avec des filtres spécifiques (hippodromes, réunions, dates) qui réduisent le nombre de réunions
+        // 2. Année passée (2024 et avant) - les rapports sont disponibles
+        // 3. OU 2 mois avec des filtres spécifiques (hippodromes, réunions, dates) qui réduisent le nombre de réunions
         const hasSpecificFilters = (filters.hippodromes?.length > 0 || 
                                    filters.reunionNumbers?.length > 0 || 
                                    filters.dateFrom || 
                                    filters.dateTo);
         
-        // Activer seulement pour 1 mois, ou 2 mois avec filtres très spécifiques
-        const includeArrivalReports = totalMonths === 1 || (totalMonths === 2 && hasSpecificFilters);
+        // Désactiver pour les années futures (2025+) car les rapports ne sont pas encore disponibles
+        // et le scraping prend trop de temps
+        const isFutureYear = years.some(y => parseInt(y) >= 2025);
+        
+        // Activer seulement pour 1 mois avec année passée, ou 2 mois avec filtres très spécifiques
+        const includeArrivalReports = (totalMonths === 1 && !isFutureYear) || (totalMonths === 2 && hasSpecificFilters && !isFutureYear);
         
         if (!includeArrivalReports) {
           console.log(`[API] Rapports d'arrivée désactivés (${totalMonths} mois, filtres spécifiques: ${hasSpecificFilters}) pour éviter timeout`);
