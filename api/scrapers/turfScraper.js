@@ -1498,10 +1498,10 @@ async function scrapeArrivalReportFromUrl(url, robotsRules = null) {
   }
 
   try {
-    // OPTIMISATION : Timeout réduit à 1.5 secondes par requête pour améliorer la performance globale
-    // Réduction agressive pour éviter les timeouts globaux (58s limite Vercel)
+    // OPTIMISATION : Timeout réduit à 1 seconde par requête pour améliorer la performance globale
+    // Réduction très agressive pour éviter les timeouts globaux (56s limite Vercel)
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 1500);
+    const timeoutId = setTimeout(() => controller.abort(), 1000);
 
     let response;
     try {
@@ -1549,27 +1549,41 @@ async function scrapeArrivalReportFromUrl(url, robotsRules = null) {
         
         // Chercher des patterns JSON avec des rapports d'arrivée
         // Pattern: "arrivee": "11-1-8-13-14" ou "arrival": "11-1-8-13-14" ou "resultat": "11-1-8-13-14"
+        // AMÉLIORATION : Chercher aussi dans des structures JSON plus complexes (tableaux, objets imbriqués)
         const jsonPatterns = [
           /["']arriv[ée]e["']\s*:\s*["'](\d+(?:-\d+){2,})["']/i,
           /["']arrival["']\s*:\s*["'](\d+(?:-\d+){2,})["']/i,
           /["']resultat["']\s*:\s*["'](\d+(?:-\d+){2,})["']/i,
           /["']result["']\s*:\s*["'](\d+(?:-\d+){2,})["']/i,
           /arriv[ée]e[ée\s\n:]*(\d+(?:\s*[-–]\s*\d+){2,})/i,
+          // Patterns pour structures JSON complexes (tableaux)
+          /\[(\d+(?:,\s*\d+){2,})\]/,
+          // Patterns pour objets avec propriétés numériques
+          /"(\d+)"\s*:\s*"(\d+)"\s*,\s*"(\d+)"\s*:\s*"(\d+)"/,
+          // Patterns pour données sérialisées
+          /arriv[ée]e[ée\s\n:]*\[(\d+(?:,\s*\d+){2,})\]/i,
         ];
         
         for (const pattern of jsonPatterns) {
           const match = scriptContent.match(pattern);
           if (match) {
-            let candidate = match[1].trim();
+            let candidate = match[1] || match[0];
+            if (!candidate) continue;
+            
+            // Gérer les différents formats (tableaux JSON, chaînes, etc.)
             candidate = candidate
+              .replace(/[\[\]"]/g, '') // Enlever les crochets et guillemets
+              .replace(/,/g, '|') // Remplacer les virgules par séparateur
               .replace(/\s+/g, ' ')
               .replace(/\s*[-–]\s*/g, '|')
               .replace(/\s+/g, '|')
               .replace(/\|+/g, '|');
+            
             const numbers = candidate
               .split('|')
               .map((n) => n.trim())
               .filter((n) => n.match(/^\d+$/));
+            
             if (numbers.length >= 3) {
               const validNumbers = numbers.filter((n) => {
                 const num = parseInt(n);
@@ -2025,9 +2039,10 @@ export async function scrapeTurfFrArchives(
 
     // OPTIMISATION CRITIQUE : Réduire drastiquement pour 2022 (année avec beaucoup de réunions et timeouts fréquents)
     const firstYear = years && years.length > 0 ? years[0] : null;
-    if (firstYear === 2022 || (years && years.includes(2022))) {
-      // 2022 a beaucoup de réunions, réduire le batch size pour éviter les timeouts
-      adaptiveBatchSize = Math.max(15, Math.floor(adaptiveBatchSize * 0.5));
+    const has2022 = firstYear === 2022 || (years && years.includes(2022));
+    if (has2022) {
+      // 2022 a beaucoup de réunions, réduire le batch size encore plus agressivement
+      adaptiveBatchSize = Math.max(8, Math.floor(adaptiveBatchSize * 0.3));
       console.log(`[Scraper] ⚠️ Année 2022 détectée, batch size réduit à ${adaptiveBatchSize} pour éviter timeouts`);
     }
 
@@ -2057,7 +2072,8 @@ export async function scrapeTurfFrArchives(
 
     // OPTIMISATION : Suivre le temps écoulé pour early exit si timeout imminent
     const SCRAPING_START_TIME = Date.now();
-    const MAX_SCRAPING_TIME = 50000; // 50 secondes max pour laisser 7s de marge (limite 56s)
+    // OPTIMISATION CRITIQUE : Réduire le temps max pour 2022 (année problématique)
+    const MAX_SCRAPING_TIME = has2022 ? 40000 : 50000; // 40s pour 2022, 50s pour les autres (limite 56s)
     let totalScraped = 0;
     let totalWithReports = 0;
 
@@ -2066,8 +2082,10 @@ export async function scrapeTurfFrArchives(
       const elapsedTime = Date.now() - SCRAPING_START_TIME;
       const remainingTime = MAX_SCRAPING_TIME - elapsedTime;
 
-      if (remainingTime < 5000) {
-        // Moins de 5 secondes restantes, arrêter le scraping
+      // OPTIMISATION : Early exit plus agressif pour 2022
+      const earlyExitThreshold = has2022 ? 8000 : 5000; // 8s pour 2022, 5s pour les autres
+      if (remainingTime < earlyExitThreshold) {
+        // Moins de X secondes restantes, arrêter le scraping
         console.log(
           `[Scraper] ⚠️ Timeout imminent (${Math.round(remainingTime / 1000)}s restantes), arrêt du scraping des rapports`
         );
@@ -2120,13 +2138,29 @@ export async function scrapeTurfFrArchives(
 
       // OPTIMISATION : Réduire le crawl-delay si on approche du timeout
       // Plus on approche du timeout, plus on réduit le délai entre batches
+      // OPTIMISATION CRITIQUE : Plus agressif pour 2022
       let currentCrawlDelay = crawlDelay;
-      if (remainingTime < 15000) {
-        // Moins de 15s restantes, réduire le délai de moitié
-        currentCrawlDelay = Math.max(200, Math.floor(crawlDelay * 0.5));
-      } else if (remainingTime < 25000) {
-        // Moins de 25s restantes, réduire le délai de 25%
-        currentCrawlDelay = Math.max(300, Math.floor(crawlDelay * 0.75));
+      if (has2022) {
+        // Pour 2022, réduire plus tôt et plus agressivement
+        if (remainingTime < 10000) {
+          // Moins de 10s restantes, réduire le délai de 75%
+          currentCrawlDelay = Math.max(100, Math.floor(crawlDelay * 0.25));
+        } else if (remainingTime < 20000) {
+          // Moins de 20s restantes, réduire le délai de 50%
+          currentCrawlDelay = Math.max(150, Math.floor(crawlDelay * 0.5));
+        } else if (remainingTime < 30000) {
+          // Moins de 30s restantes, réduire le délai de 25%
+          currentCrawlDelay = Math.max(200, Math.floor(crawlDelay * 0.75));
+        }
+      } else {
+        // Pour les autres années, logique normale
+        if (remainingTime < 15000) {
+          // Moins de 15s restantes, réduire le délai de moitié
+          currentCrawlDelay = Math.max(200, Math.floor(crawlDelay * 0.5));
+        } else if (remainingTime < 25000) {
+          // Moins de 25s restantes, réduire le délai de 25%
+          currentCrawlDelay = Math.max(300, Math.floor(crawlDelay * 0.75));
+        }
       }
 
       // ✅ RESPECT DE ROBOTS.TXT - Utiliser le crawl-delay adaptatif entre les lots
