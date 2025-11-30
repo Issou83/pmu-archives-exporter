@@ -1498,10 +1498,10 @@ async function scrapeArrivalReportFromUrl(url, robotsRules = null) {
   }
 
   try {
-    // OPTIMISATION : Timeout réduit à 1 seconde par requête pour améliorer la performance globale
-    // Réduction très agressive pour éviter les timeouts globaux (56s limite Vercel)
+    // OPTIMISATION : Timeout de 1.5 secondes par requête (compromis entre performance et fiabilité)
+    // Réduction agressive pour éviter les timeouts globaux (56s limite Vercel)
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 1000);
+    const timeoutId = setTimeout(() => controller.abort(), 1500);
 
     let response;
     try {
@@ -2043,8 +2043,8 @@ export async function scrapeTurfFrArchives(
     const firstYear = years && years.length > 0 ? years[0] : null;
     const has2022 = firstYear === 2022 || (years && years.includes(2022));
     if (has2022) {
-      // 2022 a beaucoup de réunions, réduire le batch size encore plus agressivement (5 au lieu de 8)
-      adaptiveBatchSize = Math.max(5, Math.floor(adaptiveBatchSize * 0.2));
+      // 2022 a beaucoup de réunions, réduire le batch size mais pas trop (8 au lieu de 5)
+      adaptiveBatchSize = Math.max(8, Math.floor(adaptiveBatchSize * 0.3));
       console.log(
         `[Scraper] ⚠️ Année 2022 détectée, batch size réduit à ${adaptiveBatchSize} pour éviter timeouts`
       );
@@ -2073,19 +2073,19 @@ export async function scrapeTurfFrArchives(
     // OPTIMISATION : Suivre le temps écoulé pour early exit si timeout imminent
     const SCRAPING_START_TIME = Date.now();
     // OPTIMISATION CRITIQUE : Réduire le temps max pour 2022 (année problématique)
-    // 35s pour 2022 (au lieu de 40s) pour laisser plus de marge avant le timeout global de 56s
-    const MAX_SCRAPING_TIME = has2022 ? 35000 : 50000; // 35s pour 2022, 50s pour les autres (limite 56s)
+    // 40s pour 2022 (au lieu de 35s) pour permettre plus de rapports
+    const MAX_SCRAPING_TIME = has2022 ? 40000 : 50000; // 40s pour 2022, 50s pour les autres (limite 56s)
     let totalScraped = 0;
     let totalWithReports = 0;
     
     // OPTIMISATION CRITIQUE : Limiter le nombre de réunions scrapées pour 2022 si trop nombreuses
-    // Pour éviter les timeouts, ne scraper que les 300 premières réunions (les plus récentes)
+    // Pour éviter les timeouts, ne scraper que les 400 premières réunions (les plus récentes)
     let reunionsToScrapeFinal = reunionsToScrape;
-    if (has2022 && reunionsToScrape.length > 300) {
+    if (has2022 && reunionsToScrape.length > 400) {
       console.log(
-        `[Scraper] ⚠️ 2022: Limitation à 300 réunions (sur ${reunionsToScrape.length}) pour éviter timeout`
+        `[Scraper] ⚠️ 2022: Limitation à 400 réunions (sur ${reunionsToScrape.length}) pour éviter timeout`
       );
-      reunionsToScrapeFinal = reunionsToScrape.slice(0, 300);
+      reunionsToScrapeFinal = reunionsToScrape.slice(0, 400);
     }
 
     console.log(
@@ -2098,7 +2098,7 @@ export async function scrapeTurfFrArchives(
       const remainingTime = MAX_SCRAPING_TIME - elapsedTime;
 
       // OPTIMISATION : Early exit plus agressif pour 2022
-      const earlyExitThreshold = has2022 ? 8000 : 5000; // 8s pour 2022, 5s pour les autres
+      const earlyExitThreshold = has2022 ? 6000 : 5000; // 6s pour 2022, 5s pour les autres
       if (remainingTime < earlyExitThreshold) {
         // Moins de X secondes restantes, arrêter le scraping
         console.log(
