@@ -2314,9 +2314,11 @@ export async function scrapeTurfFrArchives(
 
   // OPTIMISATION CRITIQUE : Suivre le temps dès le début pour éviter timeout
   // Le scraping initial peut déjà prendre trop de temps
-  // OPTIMISATION ULTIME : Réduire à 35s pour laisser 21s pour les rapports (plus de marge)
+  // OPTIMISATION ULTIME : Réduire à 25s pour laisser 31s pour les rapports (marge maximale)
+  // Si 2 mois ou plus, réduire encore plus car le scraping initial prend plus de temps
   const SCRAPING_START_TIME = Date.now();
-  const MAX_INITIAL_SCRAPING_TIME = 35000; // 35s max pour le scraping initial (laisser 21s pour les rapports)
+  const totalMonths = years.length * months.length;
+  const MAX_INITIAL_SCRAPING_TIME = totalMonths >= 2 ? 20000 : 30000; // 20s pour 2+ mois, 30s pour 1 mois
 
   const allReunions = [];
 
@@ -2326,8 +2328,9 @@ export async function scrapeTurfFrArchives(
       const elapsedTime = Date.now() - SCRAPING_START_TIME;
       const remainingTime = MAX_INITIAL_SCRAPING_TIME - elapsedTime;
       
-      if (remainingTime < 8000) {
-        // Moins de 8s restantes, arrêter le scraping initial (marge plus grande)
+      // Early exit plus agressif : arrêter à 10s restantes pour 2+ mois, 8s pour 1 mois
+      const earlyExitThreshold = totalMonths >= 2 ? 10000 : 8000;
+      if (remainingTime < earlyExitThreshold) {
         console.log(
           `[Scraper] ⚠️ Timeout imminent pendant scraping initial (${Math.round(remainingTime / 1000)}s restantes), arrêt`
         );
@@ -2354,7 +2357,8 @@ export async function scrapeTurfFrArchives(
     
     // Si on a arrêté à cause du timeout, sortir de la boucle des années aussi
     const elapsedTime = Date.now() - SCRAPING_START_TIME;
-    if (elapsedTime >= MAX_INITIAL_SCRAPING_TIME - 5000) {
+    const earlyExitThreshold = totalMonths >= 2 ? 10000 : 8000;
+    if (elapsedTime >= MAX_INITIAL_SCRAPING_TIME - earlyExitThreshold) {
       break;
     }
   }
