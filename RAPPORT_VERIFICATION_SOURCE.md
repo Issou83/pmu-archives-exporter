@@ -3,6 +3,7 @@
 ## Problème Identifié
 
 L'utilisateur a signalé que seulement **3/36 rapports** étaient trouvés pour mai 2025, avec la note :
+
 > "Note : Seulement 3/36 rapports trouvés peut être normal si beaucoup de courses de mai 2025 n'ont pas encore eu lieu ou si les rapports ne sont pas encore publiés."
 
 **Mais l'utilisateur a raison : on ne peut pas supposer, l'app doit être fiable.**
@@ -71,11 +72,13 @@ L'utilisateur a signalé que seulement **3/36 rapports** étaient trouvés pour 
 ## Problème Restant
 
 Le scraper ne trouve pas les rapports sur `/partants-programmes/` alors que :
+
 - Notre script de test les trouve avec la même logique
 - Les rapports sont visibles dans le navigateur
 - Le parsing HTML semble correct
 
 **Hypothèses** :
+
 - Le scraper essaie `/arrivees-rapports/` en premier (404), puis `/partants-programmes/` mais peut-être qu'il y a un timeout ou une erreur qui empêche le parsing
 - Le timeout de 3s par requête pourrait être trop court
 - Il pourrait y avoir un problème avec la façon dont le scraper gère les erreurs 404
@@ -86,4 +89,3 @@ Le scraper ne trouve pas les rapports sur `/partants-programmes/` alors que :
 2. **Augmenter le timeout par requête** de 3s à 5s pour laisser plus de temps au parsing
 3. **Améliorer la gestion des erreurs** pour éviter que les 404 bloquent le parsing
 4. **Tester avec un timeout global plus long** ou réduire le nombre de réunions scrapées en parallèle
-

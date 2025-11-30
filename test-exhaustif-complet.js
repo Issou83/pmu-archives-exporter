@@ -14,18 +14,39 @@ async function testExhaustif() {
   await new Promise((resolve) => setTimeout(resolve, 15000));
 
   const testCases = [
-    { name: 'Janvier 2024', params: 'source=turf-fr&years=2024&months=janvier' },
-    { name: 'Février 2024', params: 'source=turf-fr&years=2024&months=fevrier' },
+    {
+      name: 'Janvier 2024',
+      params: 'source=turf-fr&years=2024&months=janvier',
+    },
+    {
+      name: 'Février 2024',
+      params: 'source=turf-fr&years=2024&months=fevrier',
+    },
     { name: 'Mars 2024', params: 'source=turf-fr&years=2024&months=mars' },
     { name: 'Avril 2024', params: 'source=turf-fr&years=2024&months=avril' },
     { name: 'Mai 2024', params: 'source=turf-fr&years=2024&months=mai' },
     { name: 'Juin 2024', params: 'source=turf-fr&years=2024&months=juin' },
-    { name: 'Juillet 2024', params: 'source=turf-fr&years=2024&months=juillet' },
+    {
+      name: 'Juillet 2024',
+      params: 'source=turf-fr&years=2024&months=juillet',
+    },
     { name: 'Août 2024', params: 'source=turf-fr&years=2024&months=aout' },
-    { name: 'Septembre 2024', params: 'source=turf-fr&years=2024&months=septembre' },
-    { name: 'Octobre 2024', params: 'source=turf-fr&years=2024&months=octobre' },
-    { name: 'Novembre 2024', params: 'source=turf-fr&years=2024&months=novembre' },
-    { name: 'Décembre 2024', params: 'source=turf-fr&years=2024&months=decembre' },
+    {
+      name: 'Septembre 2024',
+      params: 'source=turf-fr&years=2024&months=septembre',
+    },
+    {
+      name: 'Octobre 2024',
+      params: 'source=turf-fr&years=2024&months=octobre',
+    },
+    {
+      name: 'Novembre 2024',
+      params: 'source=turf-fr&years=2024&months=novembre',
+    },
+    {
+      name: 'Décembre 2024',
+      params: 'source=turf-fr&years=2024&months=decembre',
+    },
   ];
 
   const results = {
@@ -64,7 +85,9 @@ async function testExhaustif() {
       const data = await response.json();
 
       if (!Array.isArray(data)) {
-        console.error(`   ❌ L'API a retourné une erreur: ${JSON.stringify(data)}`);
+        console.error(
+          `   ❌ L'API a retourné une erreur: ${JSON.stringify(data)}`
+        );
         results.failed++;
         results.errors.push({
           test: testCase.name,
@@ -194,7 +217,9 @@ async function testExhaustif() {
 
       // Afficher les résultats
       console.log(`\n   📋 Vérifications:`);
-      console.log(`      Dates invalides: ${checks.dates.invalid.length}/${checks.dates.total}`);
+      console.log(
+        `      Dates invalides: ${checks.dates.invalid.length}/${checks.dates.total}`
+      );
       if (checks.dates.invalid.length > 0) {
         console.log(`      Exemples:`);
         checks.dates.invalid.slice(0, 3).forEach((r) => {
@@ -216,13 +241,17 @@ async function testExhaustif() {
         });
       }
 
-      const reportPct = checks.reports.total > 0
-        ? Math.round((checks.reports.withReport / checks.reports.total) * 100)
-        : 0;
+      const reportPct =
+        checks.reports.total > 0
+          ? Math.round((checks.reports.withReport / checks.reports.total) * 100)
+          : 0;
       console.log(
         `      Rapports: ${checks.reports.withReport}/${checks.reports.total} (${reportPct}%)`
       );
-      if (checks.reports.missing.length > 0 && checks.reports.missing.length <= 10) {
+      if (
+        checks.reports.missing.length > 0 &&
+        checks.reports.missing.length <= 10
+      ) {
         console.log(`      Sans rapport:`);
         checks.reports.missing.slice(0, 5).forEach((r) => {
           console.log(
@@ -244,7 +273,9 @@ async function testExhaustif() {
 
       // Vérifier quelques URLs directement sur le site
       if (data.length > 0) {
-        console.log(`\n   🔍 Vérification directe sur sources (5 échantillons):`);
+        console.log(
+          `\n   🔍 Vérification directe sur sources (5 échantillons):`
+        );
         const samples = data
           .filter((r) => r.url && r.arrivalReport)
           .slice(0, 5);
@@ -257,11 +288,14 @@ async function testExhaustif() {
             if (sourceResponse.ok) {
               const sourceHtml = await sourceResponse.text();
               // Vérifier que le rapport est présent dans le HTML
-              const reportInHtml = sourceHtml.includes(sample.arrivalReport.replace(/-/g, ' ')) ||
+              const reportInHtml =
+                sourceHtml.includes(sample.arrivalReport.replace(/-/g, ' ')) ||
                 sourceHtml.includes(sample.arrivalReport);
               if (reportInHtml) {
                 verified++;
-                console.log(`      ✅ ${sample.hippodrome} R${sample.reunionNumber}: Rapport vérifié`);
+                console.log(
+                  `      ✅ ${sample.hippodrome} R${sample.reunionNumber}: Rapport vérifié`
+                );
               } else {
                 console.log(
                   `      ⚠️  ${sample.hippodrome} R${sample.reunionNumber}: Rapport non trouvé dans HTML`
@@ -321,7 +355,9 @@ async function testExhaustif() {
   console.log(`Tests effectués: ${results.total}`);
   console.log(`Tests réussis: ${results.success}`);
   console.log(`Tests échoués: ${results.failed}`);
-  console.log(`Taux de réussite: ${Math.round((results.success / results.total) * 100)}%`);
+  console.log(
+    `Taux de réussite: ${Math.round((results.success / results.total) * 100)}%`
+  );
 
   if (results.errors.length > 0) {
     console.log(`\nErreurs rencontrées:`);
@@ -332,7 +368,9 @@ async function testExhaustif() {
 
   // Statistiques globales
   const totalReunions = results.details.reduce((sum, d) => sum + d.reunions, 0);
-  const avgDuration = results.details.reduce((sum, d) => sum + d.duration, 0) / results.details.length;
+  const avgDuration =
+    results.details.reduce((sum, d) => sum + d.duration, 0) /
+    results.details.length;
   const totalDatesInvalid = results.details.reduce(
     (sum, d) => sum + d.checks.dates.invalid.length,
     0
@@ -342,7 +380,8 @@ async function testExhaustif() {
     0
   );
   const avgReportPct =
-    results.details.reduce((sum, d) => sum + d.reportPct, 0) / results.details.length;
+    results.details.reduce((sum, d) => sum + d.reportPct, 0) /
+    results.details.length;
 
   console.log(`\nStatistiques globales:`);
   console.log(`  Total réunions: ${totalReunions}`);
@@ -353,4 +392,3 @@ async function testExhaustif() {
 }
 
 testExhaustif().catch(console.error);
-

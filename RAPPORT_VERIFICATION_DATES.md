@@ -16,13 +16,13 @@ L'utilisateur a demandé de vérifier la véracité des dates extraites par le s
 
 **TOUTES les dates scrapées sont incorrectes !**
 
-| URL | Date scrapée | Date réelle à la source | Statut |
-|-----|--------------|-------------------------|--------|
-| r1-saint-cloud-39681 | 2025-05-01 | 2025-12-03 | ❌ Différent |
-| r1-vincennes-39686 | 2025-05-01 | 2025-12-03 | ❌ Différent |
-| r1-paris-longchamp-39710 | 2025-05-01 | 2025-12-03 | ❌ Différent |
-| r1-vichy-39714 | 2025-05-01 | 2025-12-03 | ❌ Différent |
-| r1-chantilly-39729 | 2025-05-01 | 2025-12-03 | ❌ Différent |
+| URL                      | Date scrapée | Date réelle à la source | Statut       |
+| ------------------------ | ------------ | ----------------------- | ------------ |
+| r1-saint-cloud-39681     | 2025-05-01   | 2025-12-03              | ❌ Différent |
+| r1-vincennes-39686       | 2025-05-01   | 2025-12-03              | ❌ Différent |
+| r1-paris-longchamp-39710 | 2025-05-01   | 2025-12-03              | ❌ Différent |
+| r1-vichy-39714           | 2025-05-01   | 2025-12-03              | ❌ Différent |
+| r1-chantilly-39729       | 2025-05-01   | 2025-12-03              | ❌ Différent |
 
 ### Constatations Importantes
 
@@ -33,6 +33,7 @@ L'utilisateur a demandé de vérifier la véracité des dates extraites par le s
 ### Cause Probable
 
 Le scraper extrait les dates depuis la page d'archives (`/archives/courses-pmu/2025/mai`), mais :
+
 - La page d'archives ne contient pas toujours la date exacte de chaque réunion
 - La date réelle de chaque réunion est sur la page individuelle (`/partants-programmes/r1-...`)
 - Quand la date n'est pas trouvée, le scraper utilise le fallback : 1er jour du mois (d'où "2025-05-01")
@@ -55,4 +56,3 @@ Le scraper extrait les dates depuis la page d'archives (`/archives/courses-pmu/2
 1. ✅ **Extraire la date depuis la page individuelle de chaque réunion**
 2. ✅ **Améliorer les patterns de recherche de date** pour être plus robustes
 3. ✅ **Ne pas utiliser le fallback si on peut scraper la page individuelle**
-

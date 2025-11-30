@@ -59,9 +59,13 @@ async function testArchivesPagesExistence() {
       console.log(`     - Total: ${totalIndicators}`);
 
       if (totalIndicators === 0) {
-        console.log(`  ⚠️  Aucun indicateur de réunion trouvé - Page peut être vide\n`);
+        console.log(
+          `  ⚠️  Aucun indicateur de réunion trouvé - Page peut être vide\n`
+        );
       } else {
-        console.log(`  ✅ Indicateurs trouvés - Page contient probablement des réunions\n`);
+        console.log(
+          `  ✅ Indicateurs trouvés - Page contient probablement des réunions\n`
+        );
       }
     } catch (error) {
       console.log(`  ❌ Erreur: ${error.message}\n`);
@@ -73,4 +77,3 @@ async function testArchivesPagesExistence() {
 }
 
 testArchivesPagesExistence().catch(console.error);
-

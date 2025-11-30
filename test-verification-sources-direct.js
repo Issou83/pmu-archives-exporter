@@ -59,7 +59,9 @@ async function testDirectSources() {
           /id=["']decompte_depart_course["'][^>]*>([^<]+)/i
         );
         if (decompteMatch) {
-          console.log(`        Contenu: "${decompteMatch[1].substring(0, 100)}"`);
+          console.log(
+            `        Contenu: "${decompteMatch[1].substring(0, 100)}"`
+          );
         }
       } else {
         console.log(`      ❌ Élément #decompte_depart_course absent`);
@@ -68,7 +70,9 @@ async function testDirectSources() {
       // Format 3: Dans .title2
       const title2Matches = html.match(/class=["']title2["'][^>]*>([^<]+)/gi);
       if (title2Matches && title2Matches.length > 0) {
-        console.log(`      ✅ Éléments .title2 présents: ${title2Matches.length}`);
+        console.log(
+          `      ✅ Éléments .title2 présents: ${title2Matches.length}`
+        );
         title2Matches.slice(0, 3).forEach((m, i) => {
           const content = m.replace(/class=["']title2["'][^>]*>/, '');
           if (content.toLowerCase().includes('arrivée')) {
@@ -96,7 +100,9 @@ async function testDirectSources() {
       const h1Match = html.match(/<h1[^>]*>([^<]+)</i);
       if (h1Match) {
         console.log(`      H1: "${h1Match[1]}"`);
-        const hippoMatch = h1Match[1].match(/à\s+([A-ZÀ-Ÿ][A-ZÀ-Ÿ\s\-]+?)(?:\s|$|,|\.)/i);
+        const hippoMatch = h1Match[1].match(
+          /à\s+([A-ZÀ-Ÿ][A-ZÀ-Ÿ\s\-]+?)(?:\s|$|,|\.)/i
+        );
         if (hippoMatch) {
           console.log(`      ✅ Hippodrome extrait: "${hippoMatch[1]}"`);
         }
@@ -119,4 +125,3 @@ async function testDirectSources() {
 }
 
 testDirectSources().catch(console.error);
-

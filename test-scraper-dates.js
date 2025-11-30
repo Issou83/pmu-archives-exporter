@@ -70,7 +70,7 @@ async function scrapeDateFromReunionPage(reunionUrl) {
         if (dateText) return false;
         const $elem = $(elem);
         const text = $elem.text();
-        
+
         for (const pattern of datePatterns) {
           const match = text.match(pattern);
           if (match) {
@@ -127,10 +127,20 @@ function parseDate(dateText) {
   if (!dateText) return null;
 
   const monthNames = {
-    'janvier': 1, 'février': 2, 'mars': 3, 'avril': 4, 'mai': 5, 'juin': 6,
-    'juillet': 7, 'août': 8, 'septembre': 9, 'octobre': 10, 'novembre': 11, 'décembre': 12
+    janvier: 1,
+    février: 2,
+    mars: 3,
+    avril: 4,
+    mai: 5,
+    juin: 6,
+    juillet: 7,
+    août: 8,
+    septembre: 9,
+    octobre: 10,
+    novembre: 11,
+    décembre: 12,
   };
-  
+
   const MONTHS = [
     { label: 'Janvier', slug: 'janvier' },
     { label: 'Février', slug: 'fevrier' },
@@ -145,7 +155,7 @@ function parseDate(dateText) {
     { label: 'Novembre', slug: 'novembre' },
     { label: 'Décembre', slug: 'decembre' },
   ];
-  
+
   // Pattern 1: "lundi 15 janvier 2024" ou "15 janvier 2024"
   const fullDateMatch = dateText.match(
     /(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)?\s*(\d{1,2})\s+(janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)\s+(\d{4})/i
@@ -155,7 +165,7 @@ function parseDate(dateText) {
     const monthName = fullDateMatch[2].toLowerCase();
     const year = parseInt(fullDateMatch[3]);
     const month = monthNames[monthName];
-    
+
     if (month) {
       const monthIndex = month - 1;
       const date = new Date(year, monthIndex, day);
@@ -168,14 +178,16 @@ function parseDate(dateText) {
       };
     }
   }
-  
+
   // Pattern 2: "15/01/2024" ou "01/15/2024"
-  const slashDateMatch = dateText.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+  const slashDateMatch = dateText.match(
+    /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/
+  );
   if (slashDateMatch) {
     const part1 = parseInt(slashDateMatch[1]);
     const part2 = parseInt(slashDateMatch[2]);
     const year = parseInt(slashDateMatch[3]);
-    
+
     // Déterminer si c'est DD/MM/YYYY ou MM/DD/YYYY
     let day, month;
     if (part1 > 12) {
@@ -191,7 +203,7 @@ function parseDate(dateText) {
       day = part1;
       month = part2;
     }
-    
+
     if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
       const monthIndex = month - 1;
       const date = new Date(year, monthIndex, day);
@@ -215,27 +227,29 @@ async function testScraperDates() {
   console.log(`\n${'='.repeat(60)}`);
   console.log(`🧪 TEST DU SCRAPER - EXTRACTION DES DATES`);
   console.log(`${'='.repeat(60)}`);
-  
+
   const urlsToTest = [
     'https://www.turf-fr.com/partants-programmes/r1-saint-cloud-39681',
     'https://www.turf-fr.com/partants-programmes/r1-vincennes-39686',
     'https://www.turf-fr.com/partants-programmes/r1-paris-longchamp-39710',
   ];
-  
+
   console.log(`\n📋 URLs à tester: ${urlsToTest.length}`);
-  
+
   const results = [];
   for (const url of urlsToTest) {
     console.log(`\n${'='.repeat(60)}`);
     console.log(`🔍 Test: ${url}`);
     console.log(`${'='.repeat(60)}`);
-    
+
     const start = Date.now();
     const dateInfo = await scrapeDateFromReunionPage(url);
     const duration = Date.now() - start;
-    
+
     if (dateInfo) {
-      console.log(`✅ Date trouvée: ${dateInfo.dateLabel} (${dateInfo.dateISO})`);
+      console.log(
+        `✅ Date trouvée: ${dateInfo.dateLabel} (${dateInfo.dateISO})`
+      );
       console.log(`   Durée: ${duration}ms`);
       results.push({ url, success: true, dateInfo, duration });
     } else {
@@ -243,40 +257,51 @@ async function testScraperDates() {
       console.log(`   Durée: ${duration}ms`);
       results.push({ url, success: false, duration });
     }
-    
+
     // Délai entre requêtes
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
   }
-  
+
   // Résumé
   console.log(`\n${'='.repeat(60)}`);
   console.log(`📊 RÉSUMÉ DES TESTS`);
   console.log(`${'='.repeat(60)}`);
-  
-  const successCount = results.filter(r => r.success).length;
-  const failureCount = results.filter(r => !r.success).length;
-  const avgDuration = results.reduce((sum, r) => sum + r.duration, 0) / results.length;
-  
+
+  const successCount = results.filter((r) => r.success).length;
+  const failureCount = results.filter((r) => !r.success).length;
+  const avgDuration =
+    results.reduce((sum, r) => sum + r.duration, 0) / results.length;
+
   console.log(`\n✅ Succès: ${successCount}/${results.length}`);
   console.log(`❌ Échecs: ${failureCount}/${results.length}`);
   console.log(`⏱️  Durée moyenne: ${Math.round(avgDuration)}ms`);
-  
+
   console.log(`\n📋 Détails:`);
   results.forEach((r, i) => {
     if (r.success) {
-      console.log(`   ${i + 1}. ✅ ${r.url.split('/').pop()}: ${r.dateInfo.dateISO} (${r.duration}ms)`);
+      console.log(
+        `   ${i + 1}. ✅ ${r.url.split('/').pop()}: ${r.dateInfo.dateISO} (${r.duration}ms)`
+      );
     } else {
-      console.log(`   ${i + 1}. ❌ ${r.url.split('/').pop()}: Aucune date (${r.duration}ms)`);
+      console.log(
+        `   ${i + 1}. ❌ ${r.url.split('/').pop()}: Aucune date (${r.duration}ms)`
+      );
     }
   });
-  
+
   // Vérifier que les dates ne sont pas toutes identiques (signe de fallback)
   if (successCount > 1) {
-    const dates = results.filter(r => r.success).map(r => r.dateInfo.dateISO);
+    const dates = results
+      .filter((r) => r.success)
+      .map((r) => r.dateInfo.dateISO);
     const uniqueDates = new Set(dates);
     if (uniqueDates.size === 1 && dates[0].endsWith('-01')) {
-      console.log(`\n⚠️  ATTENTION: Toutes les dates sont identiques et se terminent par '-01'`);
-      console.log(`   Cela pourrait indiquer que le fallback est utilisé au lieu de dates réelles`);
+      console.log(
+        `\n⚠️  ATTENTION: Toutes les dates sont identiques et se terminent par '-01'`
+      );
+      console.log(
+        `   Cela pourrait indiquer que le fallback est utilisé au lieu de dates réelles`
+      );
     } else {
       console.log(`\n✅ Les dates sont variées, pas de problème de fallback`);
     }
@@ -285,4 +310,3 @@ async function testScraperDates() {
 
 // Exécuter les tests
 testScraperDates().catch(console.error);
-

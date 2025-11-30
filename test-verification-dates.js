@@ -12,14 +12,16 @@ async function testUrlDate(url, expectedDateISO, expectedDateLabel) {
   console.log(`\n${'='.repeat(60)}`);
   console.log(`🔍 VÉRIFICATION DATE: ${url}`);
   console.log(`${'='.repeat(60)}`);
-  
+
   try {
     console.log(`\n📄 Test URL: ${url}`);
-    console.log(`   Date attendue (scrapée): ${expectedDateLabel} (${expectedDateISO})`);
-    
+    console.log(
+      `   Date attendue (scrapée): ${expectedDateLabel} (${expectedDateISO})`
+    );
+
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
-    
+
     let response;
     try {
       response = await fetch(url, {
@@ -40,21 +42,21 @@ async function testUrlDate(url, expectedDateISO, expectedDateLabel) {
         return { url, error: error.message };
       }
     }
-    
+
     if (!response || !response.ok) {
       console.log(`   ⚠️  HTTP ${response?.status || 'unknown'}`);
       return { url, error: `HTTP ${response?.status || 'unknown'}` };
     }
-    
+
     const html = await response.text();
     const $ = cheerio.load(html);
-    
+
     // Chercher la date dans différents endroits de la page
     let foundDate = null;
     let foundDateISO = null;
     let foundDateLabel = null;
     let foundIn = null;
-    
+
     // PRIORITÉ 1 : Chercher dans le titre de la page
     const $title = $('title');
     if ($title.length > 0) {
@@ -65,7 +67,7 @@ async function testUrlDate(url, expectedDateISO, expectedDateLabel) {
         /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/,
         /(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/,
       ];
-      
+
       for (const pattern of datePatterns) {
         const match = titleText.match(pattern);
         if (match) {
@@ -75,7 +77,7 @@ async function testUrlDate(url, expectedDateISO, expectedDateLabel) {
         }
       }
     }
-    
+
     // PRIORITÉ 2 : Chercher dans les éléments avec classe/ID contenant "date"
     if (!foundDate) {
       const dateSelectors = [
@@ -86,21 +88,21 @@ async function testUrlDate(url, expectedDateISO, expectedDateLabel) {
         '[class*="jour"]',
         '[id*="jour"]',
       ];
-      
+
       for (const selector of dateSelectors) {
         const $elements = $(selector);
         $elements.each((i, elem) => {
           if (foundDate) return false;
           const $elem = $(elem);
           const text = $elem.text();
-          
+
           const datePatterns = [
             /(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\s+(\d{1,2})\s+(janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)\s+(\d{4})/i,
             /(\d{1,2})\s+(janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)\s+(\d{4})/i,
             /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/,
             /(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/,
           ];
-          
+
           for (const pattern of datePatterns) {
             const match = text.match(pattern);
             if (match) {
@@ -112,7 +114,7 @@ async function testUrlDate(url, expectedDateISO, expectedDateLabel) {
         });
       }
     }
-    
+
     // PRIORITÉ 3 : Chercher dans le body pour des patterns de date
     if (!foundDate) {
       const bodyText = $('body').text();
@@ -120,7 +122,7 @@ async function testUrlDate(url, expectedDateISO, expectedDateLabel) {
         /(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\s+(\d{1,2})\s+(janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)\s+(\d{4})/i,
         /(\d{1,2})\s+(janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)\s+(\d{4})/i,
       ];
-      
+
       for (const pattern of datePatterns) {
         const match = bodyText.match(pattern);
         if (match) {
@@ -130,37 +132,51 @@ async function testUrlDate(url, expectedDateISO, expectedDateLabel) {
         }
       }
     }
-    
+
     // Convertir la date trouvée en format ISO et label
     if (foundDate) {
       // Parser la date selon différents formats
       const monthNames = {
-        'janvier': 1, 'février': 2, 'mars': 3, 'avril': 4, 'mai': 5, 'juin': 6,
-        'juillet': 7, 'août': 8, 'septembre': 9, 'octobre': 10, 'novembre': 11, 'décembre': 12
+        janvier: 1,
+        février: 2,
+        mars: 3,
+        avril: 4,
+        mai: 5,
+        juin: 6,
+        juillet: 7,
+        août: 8,
+        septembre: 9,
+        octobre: 10,
+        novembre: 11,
+        décembre: 12,
       };
-      
+
       // Format: "1 mai 2025" ou "lundi 1 mai 2025"
-      const fullDateMatch = foundDate.match(/(\d{1,2})\s+(janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)\s+(\d{4})/i);
+      const fullDateMatch = foundDate.match(
+        /(\d{1,2})\s+(janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)\s+(\d{4})/i
+      );
       if (fullDateMatch) {
         const day = parseInt(fullDateMatch[1]);
         const monthName = fullDateMatch[2].toLowerCase();
         const year = parseInt(fullDateMatch[3]);
         const month = monthNames[monthName];
-        
+
         if (month) {
           foundDateISO = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
           foundDateLabel = `${day} ${monthName.charAt(0).toUpperCase() + monthName.slice(1)} ${year}`;
         }
       }
-      
+
       // Format: "01/05/2025" ou "2025/05/01"
       if (!foundDateISO) {
-        const slashDateMatch = foundDate.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+        const slashDateMatch = foundDate.match(
+          /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/
+        );
         if (slashDateMatch) {
           const part1 = parseInt(slashDateMatch[1]);
           const part2 = parseInt(slashDateMatch[2]);
           const year = parseInt(slashDateMatch[3]);
-          
+
           // Déterminer si c'est DD/MM/YYYY ou MM/DD/YYYY
           if (part1 > 12) {
             // DD/MM/YYYY
@@ -171,16 +187,18 @@ async function testUrlDate(url, expectedDateISO, expectedDateLabel) {
           }
         }
       }
-      
+
       // Format: "2025-05-01"
       if (!foundDateISO) {
-        const isoDateMatch = foundDate.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+        const isoDateMatch = foundDate.match(
+          /(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/
+        );
         if (isoDateMatch) {
           foundDateISO = `${isoDateMatch[1]}-${String(isoDateMatch[2]).padStart(2, '0')}-${String(isoDateMatch[3]).padStart(2, '0')}`;
         }
       }
     }
-    
+
     // Comparaison
     console.log(`\n📊 RÉSULTAT:`);
     if (foundDate) {
@@ -193,24 +211,30 @@ async function testUrlDate(url, expectedDateISO, expectedDateLabel) {
         if (foundDateLabel) {
           console.log(`   📅 Date label: ${foundDateLabel}`);
         }
-        
+
         if (foundDateISO === expectedDateISO) {
-          console.log(`   ✅ Correspond avec la date scrapée: ${expectedDateISO}`);
+          console.log(
+            `   ✅ Correspond avec la date scrapée: ${expectedDateISO}`
+          );
         } else {
           console.log(`   ⚠️  DIFFÉRENT de la date scrapée !`);
           console.log(`      Source: ${foundDateISO}`);
           console.log(`      Scrapé: ${expectedDateISO}`);
         }
       } else {
-        console.log(`   ⚠️  Date trouvée mais format non reconnu: "${foundDate}"`);
+        console.log(
+          `   ⚠️  Date trouvée mais format non reconnu: "${foundDate}"`
+        );
       }
     } else {
       console.log(`   ❌ Aucune date trouvée à la source`);
       if (expectedDateISO) {
-        console.log(`   ⚠️  PROBLÈME: Date scrapée (${expectedDateISO}) mais pas trouvée à la source !`);
+        console.log(
+          `   ⚠️  PROBLÈME: Date scrapée (${expectedDateISO}) mais pas trouvée à la source !`
+        );
       }
     }
-    
+
     return {
       url,
       expectedDateISO,
@@ -234,7 +258,7 @@ async function testMultipleUrls() {
   console.log(`\n${'='.repeat(60)}`);
   console.log(`🧪 VÉRIFICATION À LA SOURCE - DATES UNIQUEMENT`);
   console.log(`${'='.repeat(60)}`);
-  
+
   // URLs à tester (récupérées depuis l'API)
   const urlsToTest = [
     {
@@ -263,45 +287,56 @@ async function testMultipleUrls() {
       expectedDateLabel: '1 mai 2025',
     },
   ];
-  
+
   console.log(`\n📋 URLs à tester: ${urlsToTest.length}`);
-  
+
   const results = [];
   for (const item of urlsToTest) {
-    const result = await testUrlDate(item.url, item.expectedDateISO, item.expectedDateLabel);
+    const result = await testUrlDate(
+      item.url,
+      item.expectedDateISO,
+      item.expectedDateLabel
+    );
     results.push(result);
-    await new Promise(resolve => setTimeout(resolve, 1000)); // Délai entre requêtes
+    await new Promise((resolve) => setTimeout(resolve, 1000)); // Délai entre requêtes
   }
-  
+
   // Résumé
   console.log(`\n${'='.repeat(60)}`);
   console.log(`📊 RÉSUMÉ DES VÉRIFICATIONS - DATES`);
   console.log(`${'='.repeat(60)}`);
-  
-  const correct = results.filter(r => r.matches).length;
-  const incorrect = results.filter(r => r.foundDateISO && !r.matches).length;
-  const missing = results.filter(r => !r.foundDate && !r.error).length;
-  const errors = results.filter(r => r.error).length;
-  
+
+  const correct = results.filter((r) => r.matches).length;
+  const incorrect = results.filter((r) => r.foundDateISO && !r.matches).length;
+  const missing = results.filter((r) => !r.foundDate && !r.error).length;
+  const errors = results.filter((r) => r.error).length;
+
   console.log(`\n✅ Dates correctes: ${correct}/${results.length}`);
   console.log(`⚠️  Dates différentes: ${incorrect}/${results.length}`);
   console.log(`❌ Dates manquantes: ${missing}/${results.length}`);
   console.log(`❌ Erreurs: ${errors}/${results.length}`);
-  
+
   console.log(`\n📋 Détails:`);
   results.forEach((r, i) => {
     if (r.matches) {
-      console.log(`   ${i + 1}. ✅ ${r.url.split('/').pop()}: ${r.foundDateISO} (correspond)`);
+      console.log(
+        `   ${i + 1}. ✅ ${r.url.split('/').pop()}: ${r.foundDateISO} (correspond)`
+      );
     } else if (r.foundDateISO) {
-      console.log(`   ${i + 1}. ⚠️  ${r.url.split('/').pop()}: ${r.foundDateISO} (différent de ${r.expectedDateISO})`);
+      console.log(
+        `   ${i + 1}. ⚠️  ${r.url.split('/').pop()}: ${r.foundDateISO} (différent de ${r.expectedDateISO})`
+      );
     } else if (r.error) {
-      console.log(`   ${i + 1}. ❌ ${r.url.split('/').pop()}: Erreur (${r.error})`);
+      console.log(
+        `   ${i + 1}. ❌ ${r.url.split('/').pop()}: Erreur (${r.error})`
+      );
     } else {
-      console.log(`   ${i + 1}. ❌ ${r.url.split('/').pop()}: Date non trouvée`);
+      console.log(
+        `   ${i + 1}. ❌ ${r.url.split('/').pop()}: Date non trouvée`
+      );
     }
   });
 }
 
 // Exécuter les tests
 testMultipleUrls().catch(console.error);
-

@@ -1138,8 +1138,14 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
           }
         }
 
-        if (!hippodrome) {
+        if (!hippodrome || hippodrome.length < 2) {
           hippodrome = 'Inconnu';
+          // Log pour debug des hippodromes inconnus
+          if (href && !href.includes('prix')) {
+            console.log(
+              `[Scraper] ⚠️ Hippodrome 'Inconnu' pour ${fullUrl}, URL: ${href.substring(0, 100)}`
+            );
+          }
         }
 
         // Chercher la date dans le conteneur, le breadcrumb, ou le texte proche
@@ -1287,8 +1293,21 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
     // Méthode 2 : Si aucune réunion trouvée, essayer une approche différente
     if (reunions.length === 0) {
       console.log(
-        `[Scraper] Aucune réunion trouvée avec la méthode 1, essai méthode alternative...`
+        `[Scraper] ⚠️ Aucune réunion trouvée avec la méthode 1, essai méthode alternative...`
       );
+      console.log(
+        `[Scraper] DEBUG: Total liens sur la page: ${$('a').length}, Patterns matchés: ${foundLinks}`
+      );
+      
+      // Log des premiers liens pour debug
+      const firstLinks = $('a').slice(0, 10).toArray();
+      console.log(`[Scraper] DEBUG: Premiers liens trouvés:`);
+      firstLinks.forEach((link, i) => {
+        const $link = $(link);
+        const href = $link.attr('href');
+        const text = $link.text().trim().substring(0, 50);
+        console.log(`[Scraper] DEBUG: Lien ${i + 1}: ${href} | Texte: ${text}`);
+      });
 
       // Chercher tous les liens qui pointent vers des réunions
       $('a[href*="reunion"], a[href*="course"], a[href*="programme"]').each(
@@ -1520,10 +1539,57 @@ async function scrapeArrivalReportFromUrl(url, robotsRules = null) {
     // Chercher le rapport d'arrivée dans différents formats possibles
     let arrivalReport = null;
 
+    // PRIORITÉ 0 : Chercher dans les scripts JSON embarqués (les rapports peuvent être dans des données JS)
+    // Les rapports sont parfois générés par JavaScript, chercher dans les scripts
+    if (!arrivalReport) {
+      const scripts = $('script').toArray();
+      for (const script of scripts) {
+        if (arrivalReport) break;
+        const scriptContent = $(script).html() || '';
+        
+        // Chercher des patterns JSON avec des rapports d'arrivée
+        // Pattern: "arrivee": "11-1-8-13-14" ou "arrival": "11-1-8-13-14" ou "resultat": "11-1-8-13-14"
+        const jsonPatterns = [
+          /["']arriv[ée]e["']\s*:\s*["'](\d+(?:-\d+){2,})["']/i,
+          /["']arrival["']\s*:\s*["'](\d+(?:-\d+){2,})["']/i,
+          /["']resultat["']\s*:\s*["'](\d+(?:-\d+){2,})["']/i,
+          /["']result["']\s*:\s*["'](\d+(?:-\d+){2,})["']/i,
+          /arriv[ée]e[ée\s\n:]*(\d+(?:\s*[-–]\s*\d+){2,})/i,
+        ];
+        
+        for (const pattern of jsonPatterns) {
+          const match = scriptContent.match(pattern);
+          if (match) {
+            let candidate = match[1].trim();
+            candidate = candidate
+              .replace(/\s+/g, ' ')
+              .replace(/\s*[-–]\s*/g, '|')
+              .replace(/\s+/g, '|')
+              .replace(/\|+/g, '|');
+            const numbers = candidate
+              .split('|')
+              .map((n) => n.trim())
+              .filter((n) => n.match(/^\d+$/));
+            if (numbers.length >= 3) {
+              const validNumbers = numbers.filter((n) => {
+                const num = parseInt(n);
+                return num >= 1 && num <= 30;
+              });
+              if (validNumbers.length >= 3) {
+                arrivalReport = validNumbers.join('-');
+                console.log(`[Scraper] Rapport trouvé dans script JSON: ${arrivalReport}`);
+                break;
+              }
+            }
+          }
+        }
+      }
+    }
+
     // PRIORITÉ 1 : Chercher dans l'élément spécifique #decompte_depart_course (le plus fiable)
     // OPTIMISATION : Early exit - arrêter dès qu'on trouve le rapport ici
     const $decompte = $('#decompte_depart_course');
-    if ($decompte.length > 0) {
+    if ($decompte.length > 0 && !arrivalReport) {
       const decompteText = $decompte.text();
       // Pattern pour "Arrivée \n                    1 - 5 - 11 - 12 - 10" avec espaces multiples
       // Améliorer pour gérer les numéros sur plusieurs lignes
@@ -1951,17 +2017,25 @@ export async function scrapeTurfFrArchives(
   // Scraper les rapports d'arrivée seulement si demandé
   if (includeArrivalReports) {
     console.log(`[Scraper] Début scraping des rapports d'arrivée...`);
-    
-    // OPTIMISATION : Batch size adaptatif selon le crawl-delay et le nombre de réunions
+
+    // OPTIMISATION : Batch size adaptatif selon le crawl-delay, le nombre de réunions ET l'année
     // AUGMENTATION AGRESSIVE : Batch size très élevé pour maximiser le parallélisme
     let adaptiveBatchSize =
       crawlDelay < 1000 ? 40 : crawlDelay < 2000 ? 30 : 25;
 
+    // OPTIMISATION CRITIQUE : Réduire drastiquement pour 2022 (année avec beaucoup de réunions et timeouts fréquents)
+    const firstYear = years && years.length > 0 ? years[0] : null;
+    if (firstYear === 2022 || (years && years.includes(2022))) {
+      // 2022 a beaucoup de réunions, réduire le batch size pour éviter les timeouts
+      adaptiveBatchSize = Math.max(15, Math.floor(adaptiveBatchSize * 0.5));
+      console.log(`[Scraper] ⚠️ Année 2022 détectée, batch size réduit à ${adaptiveBatchSize} pour éviter timeouts`);
+    }
+
     // OPTIMISATION : Si beaucoup de réunions, réduire légèrement mais garder élevé
     if (uniqueReunions.length > 240) {
-      adaptiveBatchSize = Math.max(25, Math.floor(adaptiveBatchSize * 0.85));
+      adaptiveBatchSize = Math.max(20, Math.floor(adaptiveBatchSize * 0.85));
     } else if (uniqueReunions.length > 200) {
-      adaptiveBatchSize = Math.max(30, Math.floor(adaptiveBatchSize * 0.9));
+      adaptiveBatchSize = Math.max(25, Math.floor(adaptiveBatchSize * 0.9));
     }
 
     const BATCH_SIZE = adaptiveBatchSize;
@@ -1991,7 +2065,7 @@ export async function scrapeTurfFrArchives(
       // EARLY EXIT : Vérifier si on approche du timeout
       const elapsedTime = Date.now() - SCRAPING_START_TIME;
       const remainingTime = MAX_SCRAPING_TIME - elapsedTime;
-      
+
       if (remainingTime < 5000) {
         // Moins de 5 secondes restantes, arrêter le scraping
         console.log(
@@ -2033,7 +2107,7 @@ export async function scrapeTurfFrArchives(
       const failureCount = results.filter(
         (r) => r.status === 'rejected' || !r.value?.reunion?.arrivalReport
       ).length;
-      
+
       if (failureCount > 0 || (i + BATCH_SIZE) % (BATCH_SIZE * 3) === 0) {
         const progress = Math.min(i + BATCH_SIZE, reunionsToScrape.length);
         const percentage = Math.round(

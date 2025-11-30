@@ -266,14 +266,14 @@ export default async function handler(req, res) {
 
         try {
           reunions = await Promise.race([scrapingPromise, timeoutPromise]);
-          
+
           // OPTIMISATION : Compter les rapports trouvés pour le logging
           const withReports = reunions.filter((r) => r.arrivalReport).length;
           const reportPct =
             reunions.length > 0
               ? Math.round((withReports / reunions.length) * 100)
               : 0;
-          
+
           console.log(
             `[API] Scraping terminé: ${reunions.length} réunions trouvées (${withReports} avec rapports, ${reportPct}%)`
           );

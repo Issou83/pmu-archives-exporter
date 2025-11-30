@@ -1,0 +1,197 @@
+{
+  "totalTests": 55,
+  "success": 41,
+  "failed": 14,
+  "timeouts": 14,
+  "errors": [
+    {
+      "test": "2022 - fevrier",
+      "error": "HTTP 504",
+      "message": "{\"error\":{\"code\":\"504\",\"message\":\"Le scraping prend trop de temps (>56s). Essayez de réduire le nombre de mois ou d'années sélectionnés, ou utilisez des filtres plus spécifiques (hippodromes, dates).\""
+    },
+    {
+      "test": "2022 - mars",
+      "error": "HTTP 504",
+      "message": "{\"error\":{\"code\":\"504\",\"message\":\"Le scraping prend trop de temps (>56s). Essayez de réduire le nombre de mois ou d'années sélectionnés, ou utilisez des filtres plus spécifiques (hippodromes, dates).\""
+    },
+    {
+      "test": "2022 - avril",
+      "error": "HTTP 504",
+      "message": "{\"error\":{\"code\":\"504\",\"message\":\"Le scraping prend trop de temps (>56s). Essayez de réduire le nombre de mois ou d'années sélectionnés, ou utilisez des filtres plus spécifiques (hippodromes, dates).\""
+    },
+    {
+      "test": "2022 - juin",
+      "error": "HTTP 504",
+      "message": "{\"error\":{\"code\":\"504\",\"message\":\"Le scraping prend trop de temps (>56s). Essayez de réduire le nombre de mois ou d'années sélectionnés, ou utilisez des filtres plus spécifiques (hippodromes, dates).\""
+    },
+    {
+      "test": "2022 - juillet",
+      "error": "HTTP 504",
+      "message": "{\"error\":{\"code\":\"504\",\"message\":\"Le scraping prend trop de temps (>56s). Essayez de réduire le nombre de mois ou d'années sélectionnés, ou utilisez des filtres plus spécifiques (hippodromes, dates).\""
+    },
+    {
+      "test": "2022 - aout",
+      "error": "HTTP 504",
+      "message": "{\"error\":{\"code\":\"504\",\"message\":\"Le scraping prend trop de temps (>56s). Essayez de réduire le nombre de mois ou d'années sélectionnés, ou utilisez des filtres plus spécifiques (hippodromes, dates).\""
+    },
+    {
+      "test": "2022 - octobre",
+      "error": "HTTP 504",
+      "message": "{\"error\":{\"code\":\"504\",\"message\":\"Le scraping prend trop de temps (>56s). Essayez de réduire le nombre de mois ou d'années sélectionnés, ou utilisez des filtres plus spécifiques (hippodromes, dates).\""
+    },
+    {
+      "test": "2023 - mars",
+      "error": "HTTP 504",
+      "message": "{\"error\":{\"code\":\"504\",\"message\":\"Le scraping prend trop de temps (>56s). Essayez de réduire le nombre de mois ou d'années sélectionnés, ou utilisez des filtres plus spécifiques (hippodromes, dates).\""
+    },
+    {
+      "test": "2023 - avril",
+      "error": "HTTP 504",
+      "message": "{\"error\":{\"code\":\"504\",\"message\":\"Le scraping prend trop de temps (>56s). Essayez de réduire le nombre de mois ou d'années sélectionnés, ou utilisez des filtres plus spécifiques (hippodromes, dates).\""
+    },
+    {
+      "test": "2023 - mai",
+      "error": "HTTP 504",
+      "message": "{\"error\":{\"code\":\"504\",\"message\":\"Le scraping prend trop de temps (>56s). Essayez de réduire le nombre de mois ou d'années sélectionnés, ou utilisez des filtres plus spécifiques (hippodromes, dates).\""
+    },
+    {
+      "test": "2025 - avril",
+      "error": "HTTP 504",
+      "message": "{\"error\":{\"code\":\"504\",\"message\":\"Le scraping prend trop de temps (>56s). Essayez de réduire le nombre de mois ou d'années sélectionnés, ou utilisez des filtres plus spécifiques (hippodromes, dates).\""
+    },
+    {
+      "test": "2025 - juin",
+      "error": "HTTP 504",
+      "message": "{\"error\":{\"code\":\"504\",\"message\":\"Le scraping prend trop de temps (>56s). Essayez de réduire le nombre de mois ou d'années sélectionnés, ou utilisez des filtres plus spécifiques (hippodromes, dates).\""
+    },
+    {
+      "test": "2025 - novembre",
+      "error": "HTTP 504",
+      "message": "{\"error\":{\"code\":\"504\",\"message\":\"Le scraping prend trop de temps (>56s). Essayez de réduire le nombre de mois ou d'années sélectionnés, ou utilisez des filtres plus spécifiques (hippodromes, dates).\""
+    }
+  ],
+  "byYear": {
+    "2022": {
+      "success": 5,
+      "failed": 7,
+      "timeouts": 7,
+      "reunions": 1750,
+      "reports": 356,
+      "unknownHippo": 55,
+      "durations": [
+        54.95,
+        54.99,
+        54.56,
+        46.81,
+        48.87
+      ]
+    },
+    "2023": {
+      "success": 9,
+      "failed": 3,
+      "timeouts": 3,
+      "reunions": 1650,
+      "reports": 676,
+      "unknownHippo": 77,
+      "durations": [
+        51.11,
+        45.6,
+        11.35,
+        10.8,
+        53.89,
+        50.91,
+        47.94,
+        51.97,
+        49.49
+      ]
+    },
+    "2024": {
+      "success": 12,
+      "failed": 0,
+      "timeouts": 0,
+      "reunions": 2935,
+      "reports": 2025,
+      "unknownHippo": 135,
+      "durations": [
+        38.42,
+        45.56,
+        50.93,
+        50.91,
+        48.07,
+        48.34,
+        50.61,
+        52.73,
+        42.5,
+        34.51,
+        50.49,
+        48.84
+      ]
+    },
+    "2025": {
+      "success": 9,
+      "failed": 3,
+      "timeouts": 3,
+      "reunions": 1822,
+      "reports": 557,
+      "unknownHippo": 88,
+      "durations": [
+        38.23,
+        39.84,
+        50.69,
+        11.37,
+        48.41,
+        52.55,
+        49.79,
+        53.26,
+        17.39
+      ]
+    }
+  },
+  "byMonth": {},
+  "globalStats": {
+    "totalReunions": 8157,
+    "totalReports": 3614,
+    "totalUnknownHippo": 355,
+    "totalInvalidDates": 0,
+    "totalInvalidUrls": 0,
+    "totalMissingFields": 0,
+    "totalDuplicates": 0,
+    "durations": [
+      54.95,
+      54.99,
+      54.56,
+      46.81,
+      48.87,
+      51.11,
+      45.6,
+      11.35,
+      10.8,
+      53.89,
+      50.91,
+      47.94,
+      51.97,
+      49.49,
+      38.42,
+      45.56,
+      50.93,
+      50.91,
+      48.07,
+      48.34,
+      50.61,
+      52.73,
+      42.5,
+      34.51,
+      50.49,
+      48.84,
+      38.23,
+      39.84,
+      50.69,
+      11.37,
+      48.41,
+      52.55,
+      49.79,
+      53.26,
+      17.39
+    ]
+  }
+}
