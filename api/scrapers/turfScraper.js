@@ -1298,7 +1298,7 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
       console.log(
         `[Scraper] DEBUG: Total liens sur la page: ${$('a').length}, Patterns matchés: ${foundLinks}`
       );
-      
+
       // Log des premiers liens pour debug
       const firstLinks = $('a').slice(0, 10).toArray();
       console.log(`[Scraper] DEBUG: Premiers liens trouvés:`);
@@ -1546,7 +1546,7 @@ async function scrapeArrivalReportFromUrl(url, robotsRules = null) {
       for (const script of scripts) {
         if (arrivalReport) break;
         const scriptContent = $(script).html() || '';
-        
+
         // Chercher des patterns JSON avec des rapports d'arrivée
         // Pattern: "arrivee": "11-1-8-13-14" ou "arrival": "11-1-8-13-14" ou "resultat": "11-1-8-13-14"
         // AMÉLIORATION : Chercher aussi dans des structures JSON plus complexes (tableaux, objets imbriqués)
@@ -1563,13 +1563,13 @@ async function scrapeArrivalReportFromUrl(url, robotsRules = null) {
           // Patterns pour données sérialisées
           /arriv[ée]e[ée\s\n:]*\[(\d+(?:,\s*\d+){2,})\]/i,
         ];
-        
+
         for (const pattern of jsonPatterns) {
           const match = scriptContent.match(pattern);
           if (match) {
             let candidate = match[1] || match[0];
             if (!candidate) continue;
-            
+
             // Gérer les différents formats (tableaux JSON, chaînes, etc.)
             candidate = candidate
               .replace(/[\[\]"]/g, '') // Enlever les crochets et guillemets
@@ -1578,12 +1578,12 @@ async function scrapeArrivalReportFromUrl(url, robotsRules = null) {
               .replace(/\s*[-–]\s*/g, '|')
               .replace(/\s+/g, '|')
               .replace(/\|+/g, '|');
-            
+
             const numbers = candidate
               .split('|')
               .map((n) => n.trim())
               .filter((n) => n.match(/^\d+$/));
-            
+
             if (numbers.length >= 3) {
               const validNumbers = numbers.filter((n) => {
                 const num = parseInt(n);
@@ -1591,7 +1591,9 @@ async function scrapeArrivalReportFromUrl(url, robotsRules = null) {
               });
               if (validNumbers.length >= 3) {
                 arrivalReport = validNumbers.join('-');
-                console.log(`[Scraper] Rapport trouvé dans script JSON: ${arrivalReport}`);
+                console.log(
+                  `[Scraper] Rapport trouvé dans script JSON: ${arrivalReport}`
+                );
                 break;
               }
             }
@@ -2041,9 +2043,11 @@ export async function scrapeTurfFrArchives(
     const firstYear = years && years.length > 0 ? years[0] : null;
     const has2022 = firstYear === 2022 || (years && years.includes(2022));
     if (has2022) {
-      // 2022 a beaucoup de réunions, réduire le batch size encore plus agressivement
-      adaptiveBatchSize = Math.max(8, Math.floor(adaptiveBatchSize * 0.3));
-      console.log(`[Scraper] ⚠️ Année 2022 détectée, batch size réduit à ${adaptiveBatchSize} pour éviter timeouts`);
+      // 2022 a beaucoup de réunions, réduire le batch size encore plus agressivement (5 au lieu de 8)
+      adaptiveBatchSize = Math.max(5, Math.floor(adaptiveBatchSize * 0.2));
+      console.log(
+        `[Scraper] ⚠️ Année 2022 détectée, batch size réduit à ${adaptiveBatchSize} pour éviter timeouts`
+      );
     }
 
     // OPTIMISATION : Si beaucoup de réunions, réduire légèrement mais garder élevé
@@ -2066,18 +2070,29 @@ export async function scrapeTurfFrArchives(
       return dateB - dateA; // Plus récent en premier
     });
 
-    console.log(
-      `[Scraper] Scraping des rapports pour TOUTES les ${uniqueReunions.length} réunions (triées par date décroissante)`
-    );
-
     // OPTIMISATION : Suivre le temps écoulé pour early exit si timeout imminent
     const SCRAPING_START_TIME = Date.now();
     // OPTIMISATION CRITIQUE : Réduire le temps max pour 2022 (année problématique)
-    const MAX_SCRAPING_TIME = has2022 ? 40000 : 50000; // 40s pour 2022, 50s pour les autres (limite 56s)
+    // 35s pour 2022 (au lieu de 40s) pour laisser plus de marge avant le timeout global de 56s
+    const MAX_SCRAPING_TIME = has2022 ? 35000 : 50000; // 35s pour 2022, 50s pour les autres (limite 56s)
     let totalScraped = 0;
     let totalWithReports = 0;
+    
+    // OPTIMISATION CRITIQUE : Limiter le nombre de réunions scrapées pour 2022 si trop nombreuses
+    // Pour éviter les timeouts, ne scraper que les 300 premières réunions (les plus récentes)
+    let reunionsToScrapeFinal = reunionsToScrape;
+    if (has2022 && reunionsToScrape.length > 300) {
+      console.log(
+        `[Scraper] ⚠️ 2022: Limitation à 300 réunions (sur ${reunionsToScrape.length}) pour éviter timeout`
+      );
+      reunionsToScrapeFinal = reunionsToScrape.slice(0, 300);
+    }
 
-    for (let i = 0; i < reunionsToScrape.length; i += BATCH_SIZE) {
+    console.log(
+      `[Scraper] Scraping des rapports pour ${reunionsToScrapeFinal.length} réunions (triées par date décroissante)`
+    );
+
+    for (let i = 0; i < reunionsToScrapeFinal.length; i += BATCH_SIZE) {
       // EARLY EXIT : Vérifier si on approche du timeout
       const elapsedTime = Date.now() - SCRAPING_START_TIME;
       const remainingTime = MAX_SCRAPING_TIME - elapsedTime;
@@ -2095,7 +2110,7 @@ export async function scrapeTurfFrArchives(
         break;
       }
 
-      const batch = reunionsToScrape.slice(i, i + BATCH_SIZE);
+      const batch = reunionsToScrapeFinal.slice(i, i + BATCH_SIZE);
       totalScraped += batch.length;
 
       // OPTIMISATION : Utiliser Promise.allSettled pour ne pas bloquer sur les erreurs
@@ -2127,12 +2142,12 @@ export async function scrapeTurfFrArchives(
       ).length;
 
       if (failureCount > 0 || (i + BATCH_SIZE) % (BATCH_SIZE * 3) === 0) {
-        const progress = Math.min(i + BATCH_SIZE, reunionsToScrape.length);
+        const progress = Math.min(i + BATCH_SIZE, reunionsToScrapeFinal.length);
         const percentage = Math.round(
-          (progress / reunionsToScrape.length) * 100
+          (progress / reunionsToScrapeFinal.length) * 100
         );
         console.log(
-          `[Scraper] Batch ${Math.floor(i / BATCH_SIZE) + 1}: ${successCount}/${batch.length} rapports trouvés | Progression: ${progress}/${reunionsToScrape.length} (${percentage}%) | Temps: ${Math.round(elapsedTime / 1000)}s`
+          `[Scraper] Batch ${Math.floor(i / BATCH_SIZE) + 1}: ${successCount}/${batch.length} rapports trouvés | Progression: ${progress}/${reunionsToScrapeFinal.length} (${percentage}%) | Temps: ${Math.round(elapsedTime / 1000)}s`
         );
       }
 
@@ -2164,7 +2179,7 @@ export async function scrapeTurfFrArchives(
       }
 
       // ✅ RESPECT DE ROBOTS.TXT - Utiliser le crawl-delay adaptatif entre les lots
-      if (i + BATCH_SIZE < reunionsToScrape.length) {
+      if (i + BATCH_SIZE < reunionsToScrapeFinal.length) {
         await sleep(currentCrawlDelay);
       }
     }
