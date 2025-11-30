@@ -249,10 +249,14 @@ export default async function handler(req, res) {
         // Le scraper a un early exit à 50s, donc on a 6s de marge totale
         const SCRAPING_TIMEOUT = 56000; // 56 secondes
 
+        // OPTIMISATION CRITIQUE : Appliquer les filtres AVANT le scraping des rapports
+        // pour éviter de scraper des réunions qui seront filtrées après
+        // On passe les filtres au scraper pour qu'il puisse les appliquer pendant le scraping
         const scrapingPromise = scrapeTurfFrArchives(
           years,
           months,
-          includeArrivalReports
+          includeArrivalReports,
+          filters // Passer les filtres pour optimisation
         );
         const timeoutPromise = new Promise((_, reject) => {
           setTimeout(() => {

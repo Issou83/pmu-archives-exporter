@@ -215,8 +215,13 @@ async function scrapeHippodromeFromReunionPage(reunionUrl, robotsRules = null) {
           'MONT-DE-MARSAN',
           'HYERES',
           'CABOURG',
-          'VINCENNES',
           'CAGNES SUR MER',
+          'GER-GELSENKIRCHEN',
+          'GER-COLOGNE',
+          'SPA-SON PARDO',
+          'GB-GOODWOOD',
+          'USA-MEADOWLANDS',
+          'CHE AVENCHES',
         ];
         for (const h of knownHippodromes) {
           if (extracted.toUpperCase().includes(h)) {
@@ -224,6 +229,12 @@ async function scrapeHippodromeFromReunionPage(reunionUrl, robotsRules = null) {
             if (h === 'CAGNES SUR MER') return 'Cagnes Sur Mer';
             if (h === 'SAINT-MALO') return 'Saint-Malo';
             if (h === 'MONT-DE-MARSAN') return 'Mont-de-Marsan';
+            if (h === 'GER-GELSENKIRCHEN') return 'Ger-Gelsenkirchen';
+            if (h === 'GER-COLOGNE') return 'Ger-Cologne';
+            if (h === 'SPA-SON PARDO') return 'Spa-Son Pardo';
+            if (h === 'GB-GOODWOOD') return 'GB-Goodwood';
+            if (h === 'USA-MEADOWLANDS') return 'USA-Meadowlands';
+            if (h === 'CHE AVENCHES') return 'Che Avenches';
             return h.charAt(0) + h.slice(1).toLowerCase();
           }
         }
@@ -234,7 +245,78 @@ async function scrapeHippodromeFromReunionPage(reunionUrl, robotsRules = null) {
       }
     }
 
-    // PRIORITÉ 2 : Chercher dans le title
+    // PRIORITÉ 2 : Chercher dans le breadcrumb (très fiable pour les pages avec prix dans l'URL)
+    const $breadcrumb = $('[aria-label*="breadcrumb"], nav[aria-label*="breadcrumb"], .breadcrumb, [class*="breadcrumb"]');
+    if ($breadcrumb.length > 0) {
+      const breadcrumbText = $breadcrumb.text();
+      const breadcrumbLinks = $breadcrumb.find('a');
+      
+      // Hippodromes connus
+      const knownHippodromes = [
+        'Vincennes', 'Cagnes', 'Longchamp', 'Chantilly', 'Deauville',
+        'Auteuil', 'Enghien', 'Pau', 'Saint-Malo', 'Mont-de-Marsan',
+        'Hyères', 'Cabourg', 'Ger-Gelsenkirchen', 'Spa-Son Pardo',
+        'GB-Goodwood', 'USA-Meadowlands', 'Che Avenches'
+      ];
+      
+      // Chercher dans les liens du breadcrumb (souvent l'hippodrome est un lien)
+      let foundHippo = null;
+      breadcrumbLinks.each((i, elem) => {
+        if (foundHippo) return false; // Sortir de la boucle si déjà trouvé
+        const $link = $(elem);
+        const linkText = $link.text().trim();
+        const href = $link.attr('href') || '';
+        
+        for (const h of knownHippodromes) {
+          if (linkText === h || linkText.includes(h)) {
+            foundHippo = h;
+            return false; // Sortir de la boucle each
+          }
+        }
+        
+        // Si le lien contient un hippodrome dans l'URL (ex: /r1-vincennes-)
+        const urlHippoMatch = href.match(/r\d+[\-_]([^\/\-]+)/i);
+        if (urlHippoMatch) {
+          const urlHippo = urlHippoMatch[1];
+          for (const h of knownHippodromes) {
+            if (urlHippo.toLowerCase().includes(h.toLowerCase().replace(/\s+/g, '-'))) {
+              foundHippo = h;
+              return false; // Sortir de la boucle each
+            }
+          }
+        }
+      });
+      
+      if (foundHippo) {
+        return foundHippo;
+      }
+      
+      // Chercher dans le texte du breadcrumb
+      const hippodromes = [
+        { pattern: /cagnes\s+sur\s+mer/i, name: 'Cagnes Sur Mer' },
+        { pattern: /vincennes/i, name: 'Vincennes' },
+        { pattern: /longchamp/i, name: 'Longchamp' },
+        { pattern: /chantilly/i, name: 'Chantilly' },
+        { pattern: /deauville/i, name: 'Deauville' },
+        { pattern: /auteuil/i, name: 'Auteuil' },
+        { pattern: /enghien/i, name: 'Enghien' },
+        { pattern: /pau/i, name: 'Pau' },
+        { pattern: /ger[-\s]?gelsenkirchen/i, name: 'Ger-Gelsenkirchen' },
+        { pattern: /spa[-\s]?son[-\s]?pardo/i, name: 'Spa-Son Pardo' },
+        { pattern: /saint[-\s]?malo/i, name: 'Saint-Malo' },
+        { pattern: /mont[-\s]?de[-\s]?marsan/i, name: 'Mont-de-Marsan' },
+        { pattern: /hyeres/i, name: 'Hyères' },
+        { pattern: /cabourg/i, name: 'Cabourg' },
+      ];
+      
+      for (const h of hippodromes) {
+        if (h.pattern.test(breadcrumbText)) {
+          return h.name;
+        }
+      }
+    }
+
+    // PRIORITÉ 3 : Chercher dans le title
     const $title = $('title');
     if ($title.length > 0) {
       const titleText = $title.text();
@@ -457,12 +539,12 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
   }
 
   // CORRECTION : Déclarer datesScrapedFromPages et MAX_DATES_FROM_PAGES au début de la fonction
-  // OPTIMISATION : Réduire à 5 pour éviter les timeouts (5 * 2s = 10s max pour dates)
-  const MAX_DATES_FROM_PAGES = 5; // Limite pour éviter les timeouts
+  // OPTIMISATION : Augmenté pour améliorer la détection (30 * 2s = 60s max, mais limité par early exit)
+  const MAX_DATES_FROM_PAGES = 30; // Limite augmentée pour améliorer la détection des dates
   let datesScrapedFromPages = 0; // Compteur pour limiter le scraping depuis pages individuelles
 
-  // OPTIMISATION : Limiter aussi le nombre de requêtes pour les hippodromes depuis pages individuelles
-  const MAX_HIPPODROMES_FROM_PAGES = 3; // Limite pour éviter les timeouts (3 * 2s = 6s max)
+  // OPTIMISATION : Augmenté pour améliorer la détection des hippodromes (50 * 2s = 100s max, mais limité par early exit)
+  const MAX_HIPPODROMES_FROM_PAGES = 50; // Limite augmentée pour améliorer la détection des hippodromes
   let hippodromesScrapedFromPages = 0; // Compteur pour limiter le scraping depuis pages individuelles
 
   try {
@@ -500,7 +582,55 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
       throw new Error(`HTTP ${response.status} pour ${url}`);
     }
 
-    const html = await response.text();
+    let html = await response.text();
+    
+    // DÉTECTION MAINTENANCE : Vérifier si le site est en maintenance
+    const maintenancePatterns = [
+      /EN MAINTENANCE/i,
+      /maintenance/i,
+      /site.*maintenance/i,
+      /sera.*disponible.*quelques.*minutes/i,
+    ];
+    
+    let isMaintenance = maintenancePatterns.some(pattern => pattern.test(html));
+    if (isMaintenance) {
+      console.warn(`[Scraper] ⚠️ Site en maintenance détecté pour ${url}, retry dans 30s...`);
+      await sleep(30000); // Attendre 30 secondes
+      
+      // Retry une fois
+      try {
+        const retryController = new AbortController();
+        const retryTimeoutId = setTimeout(() => retryController.abort(), 10000);
+        const retryResponse = await fetch(url, {
+          signal: retryController.signal,
+          headers: {
+            'User-Agent':
+              'PMU-Archives-Exporter/1.0 (Educational/Research Project; Contact: voir README)',
+            Accept:
+              'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'fr-FR,fr;q=0.9,en;q=0.8',
+            Referer: 'https://www.turf-fr.com/',
+          },
+        });
+        clearTimeout(retryTimeoutId);
+        
+        if (retryResponse.ok) {
+          html = await retryResponse.text();
+          isMaintenance = maintenancePatterns.some(pattern => pattern.test(html));
+          if (isMaintenance) {
+            console.error(`[Scraper] ❌ Site toujours en maintenance après retry pour ${url}`);
+            throw new Error(`Site en maintenance pour ${url}`);
+          }
+          console.log(`[Scraper] ✅ Site disponible après retry, longueur HTML: ${html.length} caractères`);
+        } else {
+          throw new Error(`HTTP ${retryResponse.status} après retry pour ${url}`);
+        }
+      } catch (retryError) {
+        console.error(`[Scraper] ❌ Erreur lors du retry pour ${url}: ${retryError.message}`);
+        throw new Error(`Site en maintenance ou erreur réseau pour ${url}`);
+      }
+    }
+    
     const $ = cheerio.load(html);
     const reunions = [];
 
@@ -1381,6 +1511,100 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
 }
 
 /**
+ * Scrape les liens vers les pages individuelles de courses depuis une page de réunion
+ * @param {string} reunionUrl - URL de la réunion
+ * @param {Object} robotsRules - Règles robots.txt (optionnel)
+ * @returns {Promise<string[]>} - Liste des URLs de courses individuelles
+ */
+async function scrapeIndividualCourseUrls(reunionUrl, robotsRules = null) {
+  if (!reunionUrl) return [];
+
+  try {
+    // Vérifier robots.txt si disponible
+    if (robotsRules) {
+      const allowed = isUrlAllowed(robotsRules, reunionUrl, '*');
+      if (!allowed) {
+        return [];
+      }
+    }
+
+    // Timeout de 2.5s pour les pages individuelles de courses (plus de temps pour charger)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2500);
+
+    let response;
+    try {
+      response = await fetch(reunionUrl, {
+        signal: controller.signal,
+        headers: {
+          'User-Agent':
+            'PMU-Archives-Exporter/1.0 (Educational/Research Project; Contact: voir README)',
+          Accept:
+            'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'Accept-Language': 'fr-FR,fr;q=0.9,en;q=0.8',
+          Referer: 'https://www.turf-fr.com/',
+        },
+      });
+      clearTimeout(timeoutId);
+    } catch (error) {
+      clearTimeout(timeoutId);
+      return [];
+    }
+
+    if (!response.ok) {
+      return [];
+    }
+
+    const html = await response.text();
+    const $ = cheerio.load(html);
+    const courseUrls = [];
+
+    // Chercher les liens vers des courses individuelles
+    // Patterns possibles: /course/c1-..., /courses-pmu/course/c1-..., etc.
+    // AMÉLIORATION : Chercher aussi dans les onglets/tabs qui contiennent souvent les liens de courses
+    const courseSelectors = [
+      'a[href*="course"]',
+      'a[href*="c1"]',
+      'a[href*="c2"]',
+      'a[href*="c3"]',
+      'a[href*="c4"]',
+      'a[href*="c5"]',
+      'a[href*="c6"]',
+      'a[href*="c7"]',
+      'a[href*="c8"]',
+      'a[href*="c9"]',
+      'a[href*="c10"]',
+      '[class*="course"] a',
+      '[class*="tab"] a',
+      '[id*="course"] a',
+    ];
+    
+    for (const selector of courseSelectors) {
+      $(selector).each((i, elem) => {
+        const $link = $(elem);
+        const href = $link.attr('href');
+        if (href) {
+          // Vérifier si c'est un lien vers une course individuelle (contient "c" suivi d'un chiffre)
+          const courseMatch = href.match(/\/c(\d+)/i);
+          if (courseMatch) {
+            const fullUrl = href.startsWith('http')
+              ? href
+              : `https://www.turf-fr.com${href}`;
+            if (!courseUrls.includes(fullUrl)) {
+              courseUrls.push(fullUrl);
+            }
+          }
+        }
+      });
+    }
+
+    return courseUrls;
+  } catch (error) {
+    return [];
+  }
+}
+
+/**
  * Scrape le rapport d'arrivée depuis une page de réunion
  * @param {string} reunionUrl - URL de la réunion
  * @param {Object} robotsRules - Règles robots.txt (optionnel)
@@ -1389,6 +1613,98 @@ async function scrapeArrivalReport(reunionUrl, robotsRules = null) {
   if (!reunionUrl) return null;
 
   try {
+    // NOUVELLE OPTIMISATION : Chercher d'abord les liens directs vers /arrivees-rapports/ sur la page de réunion
+    // Ces liens sont souvent présents dans le breadcrumb ou dans les liens de navigation
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2000);
+      
+      const response = await fetch(reunionUrl, {
+        signal: controller.signal,
+        headers: {
+          'User-Agent':
+            'PMU-Archives-Exporter/1.0 (Educational/Research Project; Contact: voir README)',
+          Accept:
+            'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'Accept-Language': 'fr-FR,fr;q=0.9,en;q=0.8',
+          Referer: 'https://www.turf-fr.com/',
+        },
+      });
+      clearTimeout(timeoutId);
+      
+      if (response.ok) {
+        const html = await response.text();
+        const $ = cheerio.load(html);
+        
+        // Chercher tous les liens vers /arrivees-rapports/
+        const arrivalLinks = [];
+        $('a[href*="arrivees-rapports"], a[href*="arrivee"], a[href*="arrival"]').each((i, elem) => {
+          const $link = $(elem);
+          const href = $link.attr('href');
+          if (href && href.includes('arrivees-rapports')) {
+            const fullUrl = href.startsWith('http')
+              ? href
+              : `https://www.turf-fr.com${href}`;
+            if (!arrivalLinks.includes(fullUrl)) {
+              arrivalLinks.push(fullUrl);
+            }
+          }
+        });
+        
+        // Tester les liens trouvés (limiter à 3 pour ne pas trop ralentir)
+        if (arrivalLinks.length > 0) {
+          console.log(
+            `[Scraper] ${arrivalLinks.length} liens /arrivees-rapports/ trouvés sur ${reunionUrl}, test...`
+          );
+          
+          const arrivalPromises = arrivalLinks.slice(0, 3).map(arrivalUrl =>
+            scrapeArrivalReportFromUrl(arrivalUrl, robotsRules)
+          );
+          const arrivalResults = await Promise.allSettled(arrivalPromises);
+          
+          for (const result of arrivalResults) {
+            if (result.status === 'fulfilled' && result.value) {
+              console.log(
+                `[Scraper] Rapport trouvé via lien /arrivees-rapports/: ${result.value}`
+              );
+              return result.value;
+            }
+          }
+        }
+      }
+    } catch (error) {
+      // Erreur silencieuse, continuer avec les autres méthodes
+    }
+
+    // NOUVELLE OPTIMISATION : Essayer d'abord de scraper les pages individuelles de courses
+    // Certaines réunions ont des pages individuelles pour chaque course avec les rapports
+    const individualCourseUrls = await scrapeIndividualCourseUrls(
+      reunionUrl,
+      robotsRules
+    );
+    
+    if (individualCourseUrls.length > 0) {
+      console.log(
+        `[Scraper] ${individualCourseUrls.length} pages individuelles de courses trouvées pour ${reunionUrl}, scraping...`
+      );
+      
+      // Scraper les rapports depuis les pages individuelles (limiter à 5 pour améliorer le taux de rapports)
+      // Paralléliser les 5 premières pour gagner du temps
+      const coursePromises = individualCourseUrls.slice(0, 5).map(courseUrl =>
+        scrapeArrivalReportFromUrl(courseUrl, robotsRules)
+      );
+      const courseResults = await Promise.allSettled(coursePromises);
+      
+      for (const result of courseResults) {
+        if (result.status === 'fulfilled' && result.value) {
+          console.log(
+            `[Scraper] Rapport trouvé sur page individuelle de course: ${result.value}`
+          );
+          return result.value;
+        }
+      }
+    }
+
     // OPTIMISATION : Essayer d'abord /arrivees-rapports/ (plus probable d'avoir le rapport)
     // puis /partants-programmes/ si pas trouvé
 
@@ -1498,10 +1814,10 @@ async function scrapeArrivalReportFromUrl(url, robotsRules = null) {
   }
 
   try {
-    // OPTIMISATION : Timeout de 1.5 secondes par requête (compromis entre performance et fiabilité)
-    // Réduction agressive pour éviter les timeouts globaux (56s limite Vercel)
+    // OPTIMISATION : Timeout de 2 secondes par requête (compromis optimal entre performance et fiabilité)
+    // Augmenté de 1.5s à 2s pour améliorer le taux de succès des requêtes
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 1500);
+    const timeoutId = setTimeout(() => controller.abort(), 2000);
 
     let response;
     try {
@@ -1562,6 +1878,12 @@ async function scrapeArrivalReportFromUrl(url, robotsRules = null) {
           /"(\d+)"\s*:\s*"(\d+)"\s*,\s*"(\d+)"\s*:\s*"(\d+)"/,
           // Patterns pour données sérialisées
           /arriv[ée]e[ée\s\n:]*\[(\d+(?:,\s*\d+){2,})\]/i,
+          // NOUVEAUX PATTERNS : Chercher dans window.__INITIAL_STATE__ ou similaire
+          /window\.__[A-Z_]+__\s*=\s*\{[^}]*arriv[ée]e[^}]*:["'](\d+(?:-\d+){2,})["']/i,
+          // Pattern pour données React/Vue sérialisées
+          /"arriv[ée]e":\s*\[(\d+(?:,\s*\d+){2,})\]/i,
+          // Pattern pour résultats dans des objets imbriqués
+          /"results?":\s*\{[^}]*"arriv[ée]e":\s*["'](\d+(?:-\d+){2,})["']/i,
         ];
 
         for (const pattern of jsonPatterns) {
@@ -1958,11 +2280,13 @@ async function scrapeArrivalReportFromUrl(url, robotsRules = null) {
  * @param {string[]} years - Années à scraper
  * @param {string[]} months - Mois à scraper
  * @param {boolean} includeArrivalReports - Si true, scrape aussi les rapports d'arrivée (défaut: true)
+ * @param {Object} filters - Filtres optionnels pour optimiser le scraping (reunionNumbers, countries, etc.)
  */
 export async function scrapeTurfFrArchives(
   years,
   months,
-  includeArrivalReports = true
+  includeArrivalReports = true,
+  filters = null
 ) {
   console.log(
     `[Scraper] Début scraping Turf-FR: années=${years.join(',')}, mois=${months.join(',')}`
@@ -1988,10 +2312,28 @@ export async function scrapeTurfFrArchives(
     );
   }
 
+  // OPTIMISATION CRITIQUE : Suivre le temps dès le début pour éviter timeout
+  // Le scraping initial peut déjà prendre trop de temps
+  // OPTIMISATION ULTIME : Réduire à 35s pour laisser 21s pour les rapports (plus de marge)
+  const SCRAPING_START_TIME = Date.now();
+  const MAX_INITIAL_SCRAPING_TIME = 35000; // 35s max pour le scraping initial (laisser 21s pour les rapports)
+
   const allReunions = [];
 
   for (const year of years) {
     for (const month of months) {
+      // EARLY EXIT : Vérifier si on approche du timeout pendant le scraping initial
+      const elapsedTime = Date.now() - SCRAPING_START_TIME;
+      const remainingTime = MAX_INITIAL_SCRAPING_TIME - elapsedTime;
+      
+      if (remainingTime < 8000) {
+        // Moins de 8s restantes, arrêter le scraping initial (marge plus grande)
+        console.log(
+          `[Scraper] ⚠️ Timeout imminent pendant scraping initial (${Math.round(remainingTime / 1000)}s restantes), arrêt`
+        );
+        break;
+      }
+
       const monthData = MONTHS.find((m) => m.value === month);
       if (!monthData) {
         console.warn(`[Scraper] Mois non trouvé: ${month}`);
@@ -2008,6 +2350,12 @@ export async function scrapeTurfFrArchives(
 
       // ✅ RESPECT DE ROBOTS.TXT - Utiliser le crawl-delay recommandé
       await sleep(crawlDelay);
+    }
+    
+    // Si on a arrêté à cause du timeout, sortir de la boucle des années aussi
+    const elapsedTime = Date.now() - SCRAPING_START_TIME;
+    if (elapsedTime >= MAX_INITIAL_SCRAPING_TIME - 5000) {
+      break;
     }
   }
 
@@ -2030,21 +2378,86 @@ export async function scrapeTurfFrArchives(
     `[Scraper] Total après déduplication: ${uniqueReunions.length} réunions`
   );
 
+  // OPTIMISATION CRITIQUE : Appliquer les filtres AVANT le scraping des rapports
+  // pour éviter de scraper des réunions qui seront filtrées après
+  let reunionsToProcess = uniqueReunions;
+  if (filters) {
+    // Appliquer les filtres qui peuvent réduire le nombre de réunions à scraper
+    // On filtre AVANT le scraping des rapports pour économiser du temps
+    if (filters.reunionNumbers?.length) {
+      reunionsToProcess = reunionsToProcess.filter((r) => {
+        const reunionNum =
+          typeof r.reunionNumber === 'string'
+            ? parseInt(r.reunionNumber)
+            : r.reunionNumber;
+        return filters.reunionNumbers.some((num) => {
+          const filterNum = typeof num === 'string' ? parseInt(num) : num;
+          return reunionNum === filterNum;
+        });
+      });
+      console.log(
+        `[Scraper] Filtre reunionNumbers appliqué: ${uniqueReunions.length} → ${reunionsToProcess.length} réunions`
+      );
+    }
+
+    if (filters.countries?.length) {
+      reunionsToProcess = reunionsToProcess.filter((r) =>
+        filters.countries.includes(r.countryCode)
+      );
+      console.log(
+        `[Scraper] Filtre countries appliqué: ${reunionsToProcess.length} réunions restantes`
+      );
+    }
+
+    if (filters.dateFrom) {
+      reunionsToProcess = reunionsToProcess.filter(
+        (r) => r.dateISO >= filters.dateFrom
+      );
+      console.log(
+        `[Scraper] Filtre dateFrom appliqué: ${reunionsToProcess.length} réunions restantes`
+      );
+    }
+
+    if (filters.dateTo) {
+      reunionsToProcess = reunionsToProcess.filter(
+        (r) => r.dateISO <= filters.dateTo
+      );
+      console.log(
+        `[Scraper] Filtre dateTo appliqué: ${reunionsToProcess.length} réunions restantes`
+      );
+    }
+
+    if (filters.hippodromes?.length) {
+      reunionsToProcess = reunionsToProcess.filter((r) =>
+        filters.hippodromes.some((h) =>
+          r.hippodrome?.toLowerCase().includes(h.toLowerCase())
+        )
+      );
+      console.log(
+        `[Scraper] Filtre hippodromes appliqué: ${reunionsToProcess.length} réunions restantes`
+      );
+    }
+  }
+
   // Scraper les rapports d'arrivée seulement si demandé
   if (includeArrivalReports) {
-    console.log(`[Scraper] Début scraping des rapports d'arrivée...`);
+    console.log(
+      `[Scraper] Début scraping des rapports d'arrivée pour ${reunionsToProcess.length} réunions (filtrées)`
+    );
 
     // OPTIMISATION : Batch size adaptatif selon le crawl-delay, le nombre de réunions ET l'année
     // AUGMENTATION AGRESSIVE : Batch size très élevé pour maximiser le parallélisme
     let adaptiveBatchSize =
       crawlDelay < 1000 ? 40 : crawlDelay < 2000 ? 30 : 25;
 
-    // OPTIMISATION CRITIQUE : Réduire drastiquement pour 2022 (année avec beaucoup de réunions et timeouts fréquents)
+    // OPTIMISATION CRITIQUE : Réduire drastiquement pour 2022 pour éviter les timeouts
     const firstYear = years && years.length > 0 ? years[0] : null;
     const has2022 = firstYear === 2022 || (years && years.includes(2022));
     if (has2022) {
-      // 2022 a beaucoup de réunions, réduire le batch size mais pas trop (8 au lieu de 5)
-      adaptiveBatchSize = Math.max(8, Math.floor(adaptiveBatchSize * 0.3));
+      // 2022 a beaucoup de réunions et timeout souvent, réduire drastiquement le batch size
+      // Priorité : éviter les timeouts plutôt que maximiser les rapports
+      // OPTIMISATION ULTIME : Réduire encore plus (6 au lieu de 8) pour garantir 0 timeout
+      adaptiveBatchSize = Math.max(6, Math.floor(adaptiveBatchSize * 0.25));
       console.log(
         `[Scraper] ⚠️ Année 2022 détectée, batch size réduit à ${adaptiveBatchSize} pour éviter timeouts`
       );
@@ -2064,28 +2477,32 @@ export async function scrapeTurfFrArchives(
 
     // OPTIMISATION : Prioriser les réunions les plus récentes (tri par date décroissante)
     // Les réunions récentes sont souvent plus importantes et peuvent être scrapées en premier
-    const reunionsToScrape = [...uniqueReunions].sort((a, b) => {
+    // UTILISER reunionsToProcess (filtrées) au lieu de uniqueReunions
+    const reunionsToScrape = [...reunionsToProcess].sort((a, b) => {
       const dateA = new Date(a.dateISO);
       const dateB = new Date(b.dateISO);
       return dateB - dateA; // Plus récent en premier
     });
 
     // OPTIMISATION : Suivre le temps écoulé pour early exit si timeout imminent
-    const SCRAPING_START_TIME = Date.now();
-    // OPTIMISATION CRITIQUE : Réduire le temps max pour 2022 (année problématique)
-    // 40s pour 2022 (au lieu de 35s) pour permettre plus de rapports
-    const MAX_SCRAPING_TIME = has2022 ? 40000 : 50000; // 40s pour 2022, 50s pour les autres (limite 56s)
+    // Utiliser le temps déjà écoulé depuis le début du scraping initial
+    const ARRIVAL_SCRAPING_START_TIME = Date.now();
+    // OPTIMISATION CRITIQUE : Réduire drastiquement le temps max pour 2022 (année problématique)
+    // 32s pour 2022 pour laisser encore plus de marge avant le timeout de 56s (24s de marge)
+    const MAX_SCRAPING_TIME = has2022 ? 32000 : 50000; // 32s pour 2022, 50s pour les autres (limite 56s)
     let totalScraped = 0;
     let totalWithReports = 0;
-    
-    // OPTIMISATION CRITIQUE : Limiter le nombre de réunions scrapées pour 2022 si trop nombreuses
-    // Pour éviter les timeouts, ne scraper que les 400 premières réunions (les plus récentes)
+
+    // OPTIMISATION CRITIQUE : Limiter drastiquement le nombre de réunions scrapées pour 2022
+    // Pour éviter les timeouts, ne scraper que les 250 premières réunions (les plus récentes)
+    // Priorité : éviter les timeouts plutôt que maximiser les rapports
+    // OPTIMISATION ULTIME : Réduire à 250 pour garantir 0 timeout
     let reunionsToScrapeFinal = reunionsToScrape;
-    if (has2022 && reunionsToScrape.length > 400) {
+    if (has2022 && reunionsToScrape.length > 250) {
       console.log(
-        `[Scraper] ⚠️ 2022: Limitation à 400 réunions (sur ${reunionsToScrape.length}) pour éviter timeout`
+        `[Scraper] ⚠️ 2022: Limitation à 250 réunions (sur ${reunionsToScrape.length}) pour éviter timeout`
       );
-      reunionsToScrapeFinal = reunionsToScrape.slice(0, 400);
+      reunionsToScrapeFinal = reunionsToScrape.slice(0, 250);
     }
 
     console.log(
@@ -2094,15 +2511,20 @@ export async function scrapeTurfFrArchives(
 
     for (let i = 0; i < reunionsToScrapeFinal.length; i += BATCH_SIZE) {
       // EARLY EXIT : Vérifier si on approche du timeout
-      const elapsedTime = Date.now() - SCRAPING_START_TIME;
+      // Prendre en compte le temps déjà écoulé pour le scraping initial
+      const elapsedTime = Date.now() - ARRIVAL_SCRAPING_START_TIME;
+      const totalElapsedTime = Date.now() - SCRAPING_START_TIME; // SCRAPING_START_TIME défini au début de la fonction
       const remainingTime = MAX_SCRAPING_TIME - elapsedTime;
+      const totalRemainingTime = 56000 - totalElapsedTime; // 56s timeout global Vercel
 
-      // OPTIMISATION : Early exit plus agressif pour 2022
-      const earlyExitThreshold = has2022 ? 6000 : 5000; // 6s pour 2022, 5s pour les autres
-      if (remainingTime < earlyExitThreshold) {
+      // OPTIMISATION : Early exit pour 2022 (ajusté avec le nouveau MAX_SCRAPING_TIME)
+      // OPTIMISATION ULTIME : 10s de marge pour 2022 pour garantir 0 timeout
+      // Prendre en compte le temps total écoulé (initial + rapports)
+      const earlyExitThreshold = has2022 ? 10000 : 5000; // 10s pour 2022 (marge maximale), 5s pour les autres
+      if (remainingTime < earlyExitThreshold || totalRemainingTime < 10000) {
         // Moins de X secondes restantes, arrêter le scraping
         console.log(
-          `[Scraper] ⚠️ Timeout imminent (${Math.round(remainingTime / 1000)}s restantes), arrêt du scraping des rapports`
+          `[Scraper] ⚠️ Timeout imminent (${Math.round(remainingTime / 1000)}s restantes pour rapports, ${Math.round(totalRemainingTime / 1000)}s total), arrêt du scraping des rapports`
         );
         console.log(
           `[Scraper] Rapports scrapés: ${totalWithReports}/${totalScraped} (${totalScraped > 0 ? Math.round((totalWithReports / totalScraped) * 100) : 0}%)`
@@ -2184,7 +2606,7 @@ export async function scrapeTurfFrArchives(
       }
     }
 
-    const finalElapsedTime = Date.now() - SCRAPING_START_TIME;
+    const finalElapsedTime = Date.now() - ARRIVAL_SCRAPING_START_TIME;
     console.log(
       `[Scraper] Scraping des rapports d'arrivée terminé: ${totalWithReports}/${totalScraped} rapports trouvés (${totalScraped > 0 ? Math.round((totalWithReports / totalScraped) * 100) : 0}%) en ${Math.round(finalElapsedTime / 1000)}s`
     );
@@ -2192,5 +2614,7 @@ export async function scrapeTurfFrArchives(
     console.log(`[Scraper] Scraping des rapports d'arrivée désactivé`);
   }
 
+  // Retourner uniqueReunions (non filtrées) pour que les filtres finaux soient appliqués dans archives.js
+  // Mais les rapports d'arrivée ont été scrapés seulement pour reunionsToProcess (filtrées)
   return uniqueReunions;
 }
