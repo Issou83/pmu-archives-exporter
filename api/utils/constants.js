@@ -42,12 +42,21 @@ export const MONTH_NAMES = {
  * Liste des noms de mois (pour PMU JSON)
  */
 export const MONTH_NAMES_ARRAY = [
-  'janvier', 'fevrier', 'mars', 'avril', 'mai', 'juin',
-  'juillet', 'aout', 'septembre', 'octobre', 'novembre', 'decembre',
+  'janvier',
+  'fevrier',
+  'mars',
+  'avril',
+  'mai',
+  'juin',
+  'juillet',
+  'aout',
+  'septembre',
+  'octobre',
+  'novembre',
+  'decembre',
 ];
 
 /**
  * Flag DEBUG pour contrôler les logs verbeux
  */
 export const DEBUG = process.env.NODE_ENV !== 'production';
-
