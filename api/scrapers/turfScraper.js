@@ -1769,6 +1769,87 @@ async function scrapeArrivalReport(reunionUrl, robotsRules = null, reunionInfo =
         const html = await response.text();
         const $ = cheerio.load(html);
         
+        // PRIORITÉ ABSOLUE : Chercher le rapport directement dans le HTML de la page de réunion
+        // Souvent les pages "partants-programmes" contiennent déjà le rapport d'arrivée
+        // Utiliser la même logique que scrapeArrivalReportFromUrl mais directement sur le HTML chargé
+        let directReport = null;
+        
+        // Chercher le rapport dans #decompte_depart_course (priorité 1)
+        const $decompte = $('#decompte_depart_course');
+        if ($decompte.length > 0) {
+          const decompteText = $decompte.text();
+          const decompteMatch = decompteText.match(
+            /arrivée[ée\s\n:]*(\d+(?:\s*[-–]?\s*\d+){2,})/i
+          );
+          if (decompteMatch) {
+            let candidate = decompteMatch[1].trim();
+            candidate = candidate
+              .replace(/\s+/g, ' ')
+              .replace(/\s*[-–]\s*/g, '|')
+              .replace(/\s+/g, '|')
+              .replace(/\|+/g, '|');
+            const numbers = candidate
+              .split('|')
+              .map((n) => n.trim())
+              .filter((n) => n.match(/^\d+$/));
+            if (numbers.length >= 3) {
+              const validNumbers = numbers.filter((n) => {
+                const num = parseInt(n);
+                return num >= 1 && num <= 30;
+              });
+              if (validNumbers.length >= 3) {
+                directReport = validNumbers.join('-');
+              }
+            }
+          }
+        }
+        
+        // Chercher dans le body si pas trouvé (priorité 2)
+        if (!directReport) {
+          const pageText = $('body').text();
+          const arrivalMatches = pageText.match(
+            /arrivée[ée\s\n:]*(\d+(?:\s*[-–]?\s*\d+){2,})/gi
+          );
+          if (arrivalMatches && arrivalMatches.length > 0) {
+            for (const match of arrivalMatches) {
+              const numbersMatch = match.match(
+                /arrivée[ée\s\n:]*(\d+(?:\s*[-–]?\s*\d+){2,})/i
+              );
+              if (numbersMatch) {
+                let candidate = numbersMatch[1].trim();
+                candidate = candidate
+                  .replace(/\s+/g, ' ')
+                  .replace(/\s*[-–]\s*/g, '|')
+                  .replace(/\s+/g, '|')
+                  .replace(/\|+/g, '|');
+                const numbers = candidate
+                  .split('|')
+                  .map((n) => n.trim())
+                  .filter((n) => n.match(/^\d+$/));
+                if (numbers.length >= 3) {
+                  const validNumbers = numbers.filter((n) => {
+                    const num = parseInt(n);
+                    return num >= 1 && num <= 30;
+                  });
+                  if (validNumbers.length >= 3) {
+                    directReport = validNumbers.join('-');
+                    break;
+                  }
+                }
+              }
+            }
+          }
+        }
+        
+        if (directReport) {
+          if (DEBUG) {
+            console.log(
+              `[Scraper] Rapport trouvé directement sur la page de réunion ${reunionUrl}: ${directReport}`
+            );
+          }
+          return directReport;
+        }
+        
         // AMÉLIORATION : Chercher tous les liens vers /arrivees-rapports/ avec des sélecteurs plus larges
         const arrivalLinks = [];
         const linkPatterns = [
@@ -1799,11 +1880,11 @@ async function scrapeArrivalReport(reunionUrl, robotsRules = null, reunionInfo =
         // Chercher avec les sélecteurs CSS standard
         for (const selector of linkPatterns.slice(0, 6)) {
           $(selector).each((i, elem) => {
-            const $link = $(elem);
-            const href = $link.attr('href');
+          const $link = $(elem);
+          const href = $link.attr('href');
             if (href && (href.includes('arrivees-rapports') || href.includes('arrivees') || href.includes('arrival'))) {
-              const fullUrl = href.startsWith('http')
-                ? href
+            const fullUrl = href.startsWith('http')
+              ? href
                 : `https://www.turf-fr.com${href.startsWith('/') ? '' : '/'}${href}`;
               if (!arrivalLinks.includes(fullUrl) && fullUrl.includes('arrivees-rapports')) {
                 arrivalLinks.push(fullUrl);
@@ -1837,8 +1918,8 @@ async function scrapeArrivalReport(reunionUrl, robotsRules = null, reunionInfo =
                 }
               });
             } else if (fullUrl.includes('/arrivees-rapports/')) {
-              if (!arrivalLinks.includes(fullUrl)) {
-                arrivalLinks.push(fullUrl);
+            if (!arrivalLinks.includes(fullUrl)) {
+              arrivalLinks.push(fullUrl);
               }
             }
           }
@@ -1847,9 +1928,9 @@ async function scrapeArrivalReport(reunionUrl, robotsRules = null, reunionInfo =
         // Tester les liens trouvés (limiter à 5 pour maximiser les chances)
         if (arrivalLinks.length > 0) {
           if (DEBUG) {
-            console.log(
-              `[Scraper] ${arrivalLinks.length} liens /arrivees-rapports/ trouvés sur ${reunionUrl}, test...`
-            );
+          console.log(
+            `[Scraper] ${arrivalLinks.length} liens /arrivees-rapports/ trouvés sur ${reunionUrl}, test...`
+          );
           }
           
           const arrivalPromises = arrivalLinks.slice(0, 5).map(arrivalUrl =>
@@ -1860,9 +1941,9 @@ async function scrapeArrivalReport(reunionUrl, robotsRules = null, reunionInfo =
           for (const result of arrivalResults) {
             if (result.status === 'fulfilled' && result.value) {
               if (DEBUG) {
-                console.log(
-                  `[Scraper] Rapport trouvé via lien /arrivees-rapports/: ${result.value}`
-                );
+              console.log(
+                `[Scraper] Rapport trouvé via lien /arrivees-rapports/: ${result.value}`
+              );
               }
               return result.value;
             }
