@@ -132,6 +132,9 @@ export default async function handler(req, res) {
       textQuery,
     };
 
+    // Clé de cache partagée (définie selon la source)
+    let cacheKey = null;
+
     // Cache miss - scraper les données
     // NOTE: La vérification du cache pour turf-fr est faite plus tard car elle dépend de includeArrivalReports
     console.log(
@@ -191,7 +194,13 @@ export default async function handler(req, res) {
         }
 
         // OPTIMISATION CRITIQUE : Clé de cache résiliente incluant filtres et rapports
-        const cacheKey = getCacheKey(source, years, months, filters, includeArrivalReports);
+        cacheKey = getCacheKey(
+          source,
+          years,
+          months,
+          filters,
+          includeArrivalReports
+        );
         const cached = cache.get(cacheKey);
         const cacheAge = cached ? Date.now() - cached.timestamp : null;
 
@@ -283,7 +292,13 @@ export default async function handler(req, res) {
       const includeArrivalReports = false;
       
       // Clé de cache pour PMU JSON
-      const cacheKey = getCacheKey(source, years, months, filters, includeArrivalReports);
+      cacheKey = getCacheKey(
+        source,
+        years,
+        months,
+        filters,
+        includeArrivalReports
+      );
       const cached = cache.get(cacheKey);
       const cacheAge = cached ? Date.now() - cached.timestamp : null;
 
