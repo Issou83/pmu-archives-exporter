@@ -1583,11 +1583,166 @@ async function scrapeIndividualCourseUrls(reunionUrl, robotsRules = null) {
 }
 
 /**
+ * Vérifie si une page correspond à une réunion donnée
+ * Compare l'hippodrome, la date et le numéro de réunion si disponibles
+ * @param {Object} pageInfo - Informations extraites de la page : {hippodrome, dateISO, reunionNumber}
+ * @param {Object} reunionInfo - Informations de la réunion attendue : {hippodrome, dateISO, reunionNumber}
+ * @returns {boolean} - true si la page correspond à la réunion
+ */
+function verifyPageMatchesReunion(pageInfo, reunionInfo) {
+  if (!pageInfo || !reunionInfo) return true; // Si pas d'info, on accepte (pas de vérification possible)
+
+  // Vérifier l'hippodrome si disponible
+  if (pageInfo.hippodrome && reunionInfo.hippodrome) {
+    const pageHippo = pageInfo.hippodrome.toLowerCase().trim();
+    const reunionHippo = reunionInfo.hippodrome.toLowerCase().trim();
+    // Comparaison souple (partielle) pour gérer les variations
+    if (!pageHippo.includes(reunionHippo) && !reunionHippo.includes(pageHippo)) {
+      // Vérifier aussi avec des variations connues (ex: "Cagnes Sur Mer" vs "Cagnes")
+      const knownVariations = {
+        'cagnes sur mer': ['cagnes', 'cagnes-sur-mer'],
+        'saint-malo': ['saint malo'],
+        'mont-de-marsan': ['mont de marsan'],
+      };
+      
+      let matches = false;
+      for (const [key, variations] of Object.entries(knownVariations)) {
+        if ((pageHippo.includes(key) || reunionHippo.includes(key)) &&
+            (variations.some(v => pageHippo.includes(v)) || variations.some(v => reunionHippo.includes(v)))) {
+          matches = true;
+          break;
+        }
+      }
+      
+      if (!matches) {
+        if (DEBUG) {
+          console.log(
+            `[Scraper] Hippodrome ne correspond pas: page="${pageInfo.hippodrome}" vs reunion="${reunionInfo.hippodrome}"`
+          );
+        }
+        return false;
+      }
+    }
+  }
+
+  // Vérifier la date si disponible
+  if (pageInfo.dateISO && reunionInfo.dateISO) {
+    if (pageInfo.dateISO !== reunionInfo.dateISO) {
+      if (DEBUG) {
+        console.log(
+          `[Scraper] Date ne correspond pas: page="${pageInfo.dateISO}" vs reunion="${reunionInfo.dateISO}"`
+        );
+      }
+      return false;
+    }
+  }
+
+  // Vérifier le numéro de réunion si disponible
+  if (pageInfo.reunionNumber && reunionInfo.reunionNumber) {
+    const pageNum = String(pageInfo.reunionNumber).trim();
+    const reunionNum = String(reunionInfo.reunionNumber).trim();
+    if (pageNum !== reunionNum) {
+      if (DEBUG) {
+        console.log(
+          `[Scraper] Numéro de réunion ne correspond pas: page="${pageInfo.reunionNumber}" vs reunion="${reunionInfo.reunionNumber}"`
+        );
+      }
+      return false;
+    }
+  }
+
+  return true; // Toutes les vérifications passées (ou pas de données pour vérifier)
+}
+
+/**
+ * Convertit une URL de réunion vers l'URL d'arrivées/rapports correspondante
+ * Gère tous les patterns d'URL observés sur turf-fr.com
+ * @param {string} reunionUrl - URL de la réunion à convertir
+ * @returns {string[]} - Liste d'URLs d'arrivées possibles (en ordre de probabilité)
+ */
+function convertToArrivalUrl(reunionUrl) {
+  if (!reunionUrl) return [];
+
+  const arrivalUrls = [];
+  
+  // Normaliser l'URL (ajouter le domaine si manquant)
+  let baseUrl = reunionUrl;
+  if (!baseUrl.startsWith('http')) {
+    baseUrl = `https://www.turf-fr.com${baseUrl.startsWith('/') ? '' : '/'}${baseUrl}`;
+  }
+
+  // Pattern 1: URLs avec /partants-programmes/ → /courses-pmu/arrivees-rapports/
+  if (baseUrl.includes('/partants-programmes/')) {
+    const arrivalUrl = baseUrl.replace('/partants-programmes/', '/courses-pmu/arrivees-rapports/');
+    arrivalUrls.push(arrivalUrl);
+  }
+
+  // Pattern 2: URLs avec /partants/ → /courses-pmu/arrivees-rapports/
+  if (baseUrl.includes('/partants/') && !baseUrl.includes('/arrivees-rapports/')) {
+    const arrivalUrl = baseUrl.replace('/partants/', '/courses-pmu/arrivees-rapports/');
+    arrivalUrls.push(arrivalUrl);
+  }
+
+  // Pattern 3: URLs avec /pronostics/ → /courses-pmu/arrivees-rapports/
+  if (baseUrl.includes('/pronostics/')) {
+    const arrivalUrl = baseUrl.replace('/pronostics/', '/courses-pmu/arrivees-rapports/');
+    arrivalUrls.push(arrivalUrl);
+  }
+
+  // Pattern 4: URLs avec /courses-pmu/[type]/ → /courses-pmu/arrivees-rapports/
+  // Capture les patterns comme /courses-pmu/partants/, /courses-pmu/programmes/, etc.
+  if (baseUrl.includes('/courses-pmu/') && !baseUrl.includes('/arrivees-rapports/')) {
+    // Extraire la partie après /courses-pmu/ jusqu'au prochain /
+    const coursesPmuMatch = baseUrl.match(/\/courses-pmu\/([^\/]+)\/(.+)$/);
+    if (coursesPmuMatch && coursesPmuMatch[1] !== 'arrivees-rapports') {
+      const restOfPath = coursesPmuMatch[2];
+      const arrivalUrl = baseUrl.replace(/\/courses-pmu\/[^\/]+\//, '/courses-pmu/arrivees-rapports/');
+      arrivalUrls.push(arrivalUrl);
+    }
+  }
+
+  // Pattern 5: URLs avec r[numero]-[hippodrome] ou similaires
+  // Construire l'URL d'arrivées en conservant la structure
+  const rMatch = baseUrl.match(/(\/r\d+[^\/]*)/i);
+  if (rMatch && !baseUrl.includes('/arrivees-rapports/')) {
+    // Si l'URL contient un pattern de réunion mais pas d'arrivées, construire l'URL
+    // Exemple: /partants-programmes/r1-vincennes-123 → /courses-pmu/arrivees-rapports/r1-vincennes-123
+    if (baseUrl.includes('turf-fr.com')) {
+      const rPart = rMatch[1];
+      const arrivalUrl = `https://www.turf-fr.com/courses-pmu/arrivees-rapports${rPart}`;
+      if (!arrivalUrls.includes(arrivalUrl)) {
+        arrivalUrls.push(arrivalUrl);
+      }
+    }
+  }
+
+  // Pattern 6: Si l'URL contient déjà /arrivees-rapports/, la retourner telle quelle
+  if (baseUrl.includes('/arrivees-rapports/')) {
+    if (!arrivalUrls.includes(baseUrl)) {
+      arrivalUrls.unshift(baseUrl); // Priorité à l'URL exacte
+    }
+  }
+
+  // Dédupliquer tout en préservant l'ordre
+  const uniqueUrls = [];
+  const seen = new Set();
+  for (const url of arrivalUrls) {
+    if (!seen.has(url)) {
+      seen.add(url);
+      uniqueUrls.push(url);
+    }
+  }
+
+  return uniqueUrls;
+}
+
+/**
  * Scrape le rapport d'arrivée depuis une page de réunion
  * @param {string} reunionUrl - URL de la réunion
  * @param {Object} robotsRules - Règles robots.txt (optionnel)
+ * @param {Object} reunionInfo - Informations de la réunion (optionnel) pour vérification : {hippodrome, dateISO, reunionNumber}
  */
-async function scrapeArrivalReport(reunionUrl, robotsRules = null) {
+async function scrapeArrivalReport(reunionUrl, robotsRules = null, reunionInfo = null) {
   if (!reunionUrl) return null;
 
   try {
@@ -1614,37 +1769,101 @@ async function scrapeArrivalReport(reunionUrl, robotsRules = null) {
         const html = await response.text();
         const $ = cheerio.load(html);
         
-        // Chercher tous les liens vers /arrivees-rapports/
+        // AMÉLIORATION : Chercher tous les liens vers /arrivees-rapports/ avec des sélecteurs plus larges
         const arrivalLinks = [];
-        $('a[href*="arrivees-rapports"], a[href*="arrivee"], a[href*="arrival"]').each((i, elem) => {
+        const linkPatterns = [
+          // Sélecteurs directs pour les liens d'arrivées
+          'a[href*="arrivees-rapports"]',
+          'a[href*="arrivee"]',
+          'a[href*="arrival"]',
+          // Sélecteurs pour les liens dans les breadcrumbs
+          '[class*="breadcrumb"] a[href*="arrivees"]',
+          'nav a[href*="arrivees"]',
+          // Sélecteurs pour les liens de navigation
+          '[class*="nav"] a[href*="arrivees"]',
+          '[class*="menu"] a[href*="arrivees"]',
+          // Sélecteurs pour les onglets/tabs
+          '[class*="tab"] a[href*="arrivees"]',
+          '[role="tab"] a[href*="arrivees"]',
+          // Liens avec texte contenant "arrivée", "rapports", "résultats"
+          'a:contains("Arrivée")',
+          'a:contains("arrivée")',
+          'a:contains("Arrivées")',
+          'a:contains("arrivées")',
+          'a:contains("Rapports")',
+          'a:contains("rapports")',
+          'a:contains("Résultats")',
+          'a:contains("résultats")',
+        ];
+
+        // Chercher avec les sélecteurs CSS standard
+        for (const selector of linkPatterns.slice(0, 6)) {
+          $(selector).each((i, elem) => {
+            const $link = $(elem);
+            const href = $link.attr('href');
+            if (href && (href.includes('arrivees-rapports') || href.includes('arrivees') || href.includes('arrival'))) {
+              const fullUrl = href.startsWith('http')
+                ? href
+                : `https://www.turf-fr.com${href.startsWith('/') ? '' : '/'}${href}`;
+              if (!arrivalLinks.includes(fullUrl) && fullUrl.includes('arrivees-rapports')) {
+                arrivalLinks.push(fullUrl);
+              }
+            }
+          });
+        }
+
+        // Chercher aussi par texte des liens (pour les sélecteurs :contains qui ne fonctionnent pas avec cheerio)
+        $('a').each((i, elem) => {
           const $link = $(elem);
           const href = $link.attr('href');
-          if (href && href.includes('arrivees-rapports')) {
-            const fullUrl = href.startsWith('http')
+          const linkText = $link.text().toLowerCase().trim();
+          
+          // Vérifier si le texte du lien contient des mots-clés pertinents
+          const keywords = ['arrivée', 'arrivées', 'rapports', 'résultats', 'arrivees'];
+          const hasKeyword = keywords.some(keyword => linkText.includes(keyword));
+          
+          if (hasKeyword && href) {
+            // Normaliser l'URL
+            let fullUrl = href.startsWith('http')
               ? href
-              : `https://www.turf-fr.com${href}`;
-            if (!arrivalLinks.includes(fullUrl)) {
-              arrivalLinks.push(fullUrl);
+              : `https://www.turf-fr.com${href.startsWith('/') ? '' : '/'}${href}`;
+            
+            // Si l'URL ne contient pas déjà /arrivees-rapports/, essayer de la convertir
+            if (!fullUrl.includes('/arrivees-rapports/') && fullUrl.includes('turf-fr.com')) {
+              const convertedUrls = convertToArrivalUrl(fullUrl);
+              convertedUrls.forEach(convertedUrl => {
+                if (!arrivalLinks.includes(convertedUrl)) {
+                  arrivalLinks.push(convertedUrl);
+                }
+              });
+            } else if (fullUrl.includes('/arrivees-rapports/')) {
+              if (!arrivalLinks.includes(fullUrl)) {
+                arrivalLinks.push(fullUrl);
+              }
             }
           }
         });
         
-        // Tester les liens trouvés (limiter à 3 pour ne pas trop ralentir)
+        // Tester les liens trouvés (limiter à 5 pour maximiser les chances)
         if (arrivalLinks.length > 0) {
-          console.log(
-            `[Scraper] ${arrivalLinks.length} liens /arrivees-rapports/ trouvés sur ${reunionUrl}, test...`
-          );
+          if (DEBUG) {
+            console.log(
+              `[Scraper] ${arrivalLinks.length} liens /arrivees-rapports/ trouvés sur ${reunionUrl}, test...`
+            );
+          }
           
-          const arrivalPromises = arrivalLinks.slice(0, 3).map(arrivalUrl =>
+          const arrivalPromises = arrivalLinks.slice(0, 5).map(arrivalUrl =>
             scrapeArrivalReportFromUrl(arrivalUrl, robotsRules)
           );
           const arrivalResults = await Promise.allSettled(arrivalPromises);
           
           for (const result of arrivalResults) {
             if (result.status === 'fulfilled' && result.value) {
-              console.log(
-                `[Scraper] Rapport trouvé via lien /arrivees-rapports/: ${result.value}`
-              );
+              if (DEBUG) {
+                console.log(
+                  `[Scraper] Rapport trouvé via lien /arrivees-rapports/: ${result.value}`
+                );
+              }
               return result.value;
             }
           }
@@ -1683,57 +1902,31 @@ async function scrapeArrivalReport(reunionUrl, robotsRules = null) {
       }
     }
 
-    // OPTIMISATION : Essayer d'abord /arrivees-rapports/ (plus probable d'avoir le rapport)
-    // puis /partants-programmes/ si pas trouvé
+    // OPTIMISATION : Utiliser convertToArrivalUrl pour générer toutes les URLs possibles
+    // et les essayer une par une jusqu'à trouver un rapport
 
-    // Étape 1 : Construire l'URL /arrivees-rapports/ et essayer en premier
-    let arrivalUrl = reunionUrl;
-
-    // Convertir différentes formes d'URLs vers /courses-pmu/arrivees-rapports/
-    if (arrivalUrl.includes('/partants-programmes/')) {
-      arrivalUrl = arrivalUrl.replace(
-        '/partants-programmes/',
-        '/courses-pmu/arrivees-rapports/'
-      );
-    } else if (arrivalUrl.includes('/partants/')) {
-      arrivalUrl = arrivalUrl.replace(
-        '/partants/',
-        '/courses-pmu/arrivees-rapports/'
-      );
-    } else if (arrivalUrl.includes('/pronostics/')) {
-      arrivalUrl = arrivalUrl.replace(
-        '/pronostics/',
-        '/courses-pmu/arrivees-rapports/'
-      );
-    } else if (
-      !arrivalUrl.includes('/arrivees-rapports/') &&
-      arrivalUrl.includes('/courses-pmu/')
-    ) {
-      // Si l'URL contient /courses-pmu/ mais pas /arrivees-rapports/, essayer de la convertir
-      arrivalUrl = arrivalUrl.replace(
-        /\/courses-pmu\/[^\/]+\//,
-        '/courses-pmu/arrivees-rapports/'
-      );
+    // Étape 1 : Générer toutes les URLs d'arrivées possibles à partir de l'URL de réunion
+    const possibleArrivalUrls = convertToArrivalUrl(reunionUrl);
+    
+    // Ajouter aussi l'URL originale (elle peut contenir le rapport directement)
+    if (!possibleArrivalUrls.includes(reunionUrl)) {
+      possibleArrivalUrls.push(reunionUrl);
     }
 
-    // Essayer /arrivees-rapports/ en premier (plus probable)
-    if (arrivalUrl !== reunionUrl) {
+    // Étape 2 : Essayer chaque URL possible jusqu'à trouver un rapport
+    for (const arrivalUrl of possibleArrivalUrls) {
       const arrivalReport = await scrapeArrivalReportFromUrl(
         arrivalUrl,
         robotsRules
       );
       if (arrivalReport) {
+        if (DEBUG) {
+          console.log(
+            `[Scraper] Rapport trouvé via URL convertie ${arrivalUrl}: ${arrivalReport}`
+          );
+        }
         return arrivalReport;
       }
-    }
-
-    // Étape 2 : Si pas trouvé, essayer la page originale (souvent /partants-programmes/)
-    const arrivalReport = await scrapeArrivalReportFromUrl(
-      reunionUrl,
-      robotsRules
-    );
-    if (arrivalReport) {
-      return arrivalReport;
     }
 
     // Si toujours pas trouvé, retourner null
@@ -1977,6 +2170,61 @@ async function scrapeArrivalReportFromUrl(url, robotsRules = null) {
           }
         }
       });
+    }
+
+    // PRIORITÉ 1c : Chercher dans les tableaux de résultats (souvent les rapports sont dans des tableaux)
+    if (!arrivalReport) {
+      // Chercher dans les tableaux avec classes/id pertinents
+      const tableSelectors = [
+        'table[class*="arrivee"]',
+        'table[class*="arrival"]',
+        'table[class*="resultat"]',
+        'table[class*="result"]',
+        'table[id*="arrivee"]',
+        'table[id*="arrival"]',
+        '.table-arrivee',
+        '.table-resultats',
+        '[class*="table"]',
+      ];
+
+      for (const selector of tableSelectors) {
+        if (arrivalReport) break;
+        const $tables = $(selector);
+        
+        $tables.each((i, table) => {
+          if (arrivalReport) return false;
+          const $table = $(table);
+          const tableText = $table.text();
+          
+          // Chercher "Arrivée" suivi de numéros dans le tableau
+          const match = tableText.match(
+            /arrivée[ée\s\n:]*(\d+(?:\s*[-–]\s*\d+){2,})/i
+          );
+          
+          if (match) {
+            let candidate = match[1].trim();
+            candidate = candidate
+              .replace(/\s+/g, ' ')
+              .replace(/\s*[-–]\s*/g, '|')
+              .replace(/\s+/g, '|')
+              .replace(/\|+/g, '|');
+            const numbers = candidate
+              .split('|')
+              .map((n) => n.trim())
+              .filter((n) => n.match(/^\d+$/));
+            if (numbers.length >= 3) {
+              const validNumbers = numbers.filter((n) => {
+                const num = parseInt(n);
+                return num >= 1 && num <= 30;
+              });
+              if (validNumbers.length >= 3) {
+                arrivalReport = validNumbers.join('-');
+                return false; // Break de la boucle each
+              }
+            }
+          }
+        });
+      }
     }
 
     // PRIORITÉ 2 : Chercher dans tout le body pour des séquences de numéros après "Arrivée"
@@ -2503,9 +2751,16 @@ export async function scrapeTurfFrArchives(
       // ET réduire le crawl-delay entre batches si on approche du timeout
       const promises = batch.map(async (reunion) => {
         try {
+          // Passer les informations de la réunion pour vérification de correspondance
+          const reunionInfo = {
+            hippodrome: reunion.hippodrome,
+            dateISO: reunion.dateISO,
+            reunionNumber: reunion.reunionNumber,
+          };
           const arrivalReport = await scrapeArrivalReport(
             reunion.url,
-            robotsRules
+            robotsRules,
+            reunionInfo
           );
           reunion.arrivalReport = arrivalReport;
           if (arrivalReport) totalWithReports++;
