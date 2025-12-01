@@ -1,46 +1,10 @@
 import ExcelJS from 'exceljs';
 import { scrapeTurfFrArchives } from './scrapers/turfScraper.js';
 import { scrapePmuJsonArchives } from './scrapers/pmuJsonScraper.js';
+import { applyFilters } from './utils/filters.js';
+import { DEBUG } from './utils/constants.js';
 
-/**
- * Applique les filtres sur les réunions (même logique que archives.js)
- */
-function applyFilters(reunions, filters) {
-  let filtered = [...reunions];
-
-  if (filters.dateFrom) {
-    filtered = filtered.filter((r) => r.dateISO >= filters.dateFrom);
-  }
-  if (filters.dateTo) {
-    filtered = filtered.filter((r) => r.dateISO <= filters.dateTo);
-  }
-  if (filters.hippodromes?.length) {
-    filtered = filtered.filter((r) =>
-      filters.hippodromes.some((h) =>
-        r.hippodrome?.toLowerCase().includes(h.toLowerCase())
-      )
-    );
-  }
-  if (filters.reunionNumbers?.length) {
-    filtered = filtered.filter((r) =>
-      filters.reunionNumbers.includes(r.reunionNumber)
-    );
-  }
-  if (filters.countries?.length) {
-    filtered = filtered.filter((r) => filters.countries.includes(r.countryCode));
-  }
-  if (filters.textQuery) {
-    const query = filters.textQuery.toLowerCase();
-    filtered = filtered.filter(
-      (r) =>
-        r.hippodrome?.toLowerCase().includes(query) ||
-        r.dateLabel?.toLowerCase().includes(query) ||
-        r.reunionNumber?.toString().includes(query)
-    );
-  }
-
-  return filtered;
-}
+// applyFilters est maintenant importé depuis ./utils/filters.js
 
 /**
  * Génère un fichier Excel avec les réunions

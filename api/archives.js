@@ -3,6 +3,8 @@ import {
   setArrivalReportsCache,
 } from './scrapers/turfScraper.js';
 import { scrapePmuJsonArchives } from './scrapers/pmuJsonScraper.js';
+import { applyFilters } from './utils/filters.js';
+import { DEBUG } from './utils/constants.js';
 
 // Cache mémoire simple avec TTL
 const cache = new Map();
@@ -65,63 +67,7 @@ function getCacheKey(source, years, months, filters = {}, includeArrivalReports 
   return `${source}_${yearsStr}_${monthsStr}_${reportsFlag}_${filtersHash}`;
 }
 
-/**
- * Applique les filtres sur les réunions
- */
-function applyFilters(reunions, filters) {
-  let filtered = [...reunions];
-
-  // Filtre par date
-  if (filters.dateFrom) {
-    filtered = filtered.filter((r) => r.dateISO >= filters.dateFrom);
-  }
-  if (filters.dateTo) {
-    filtered = filtered.filter((r) => r.dateISO <= filters.dateTo);
-  }
-
-  // Filtre par hippodromes
-  if (filters.hippodromes?.length) {
-    filtered = filtered.filter((r) =>
-      filters.hippodromes.some((h) =>
-        r.hippodrome?.toLowerCase().includes(h.toLowerCase())
-      )
-    );
-  }
-
-  // Filtre par numéros de réunion
-  if (filters.reunionNumbers?.length) {
-    filtered = filtered.filter((r) => {
-      const reunionNum =
-        typeof r.reunionNumber === 'string'
-          ? parseInt(r.reunionNumber)
-          : r.reunionNumber;
-      return filters.reunionNumbers.some((num) => {
-        const filterNum = typeof num === 'string' ? parseInt(num) : num;
-        return reunionNum === filterNum;
-      });
-    });
-  }
-
-  // Filtre par pays
-  if (filters.countries?.length) {
-    filtered = filtered.filter((r) =>
-      filters.countries.includes(r.countryCode)
-    );
-  }
-
-  // Filtre par texte
-  if (filters.textQuery) {
-    const query = filters.textQuery.toLowerCase();
-    filtered = filtered.filter(
-      (r) =>
-        r.hippodrome?.toLowerCase().includes(query) ||
-        r.dateLabel?.toLowerCase().includes(query) ||
-        r.reunionNumber?.toString().includes(query)
-    );
-  }
-
-  return filtered;
-}
+// applyFilters est maintenant importé depuis ./utils/filters.js
 
 /**
  * Handler API /api/archives
@@ -186,26 +132,8 @@ export default async function handler(req, res) {
       textQuery,
     };
 
-    // Vérifier le cache
-    const cacheKey = getCacheKey(source, years, months);
-    const cached = cache.get(cacheKey);
-    const cacheAge = cached ? Date.now() - cached.timestamp : null;
-
-    if (cached && cacheAge < CACHE_TTL) {
-      // Cache hit - appliquer les filtres et retourner
-      console.log(`[API] Cache hit (âge: ${Math.round(cacheAge / 1000)}s)`);
-      const filtered = applyFilters(cached.data, filters);
-      res.setHeader('Content-Type', 'application/json');
-      return res.status(200).json(filtered);
-    } else if (cached) {
-      console.log(
-        `[API] Cache expiré (âge: ${Math.round(cacheAge / 1000)}s, TTL: ${CACHE_TTL / 1000}s)`
-      );
-    } else {
-      console.log(`[API] Cache miss pour la clé: ${cacheKey}`);
-    }
-
     // Cache miss - scraper les données
+    // NOTE: La vérification du cache pour turf-fr est faite plus tard car elle dépend de includeArrivalReports
     console.log(
       `[API] Scraping avec source=${source}, years=${years.join(',')}, months=${months.join(',')}`
     );
@@ -260,6 +188,25 @@ export default async function handler(req, res) {
           console.log(
             `[API] Rapports d'arrivée activés (${totalMonths} mois, filtres spécifiques: ${hasSpecificFilters})`
           );
+        }
+
+        // OPTIMISATION CRITIQUE : Clé de cache résiliente incluant filtres et rapports
+        const cacheKey = getCacheKey(source, years, months, filters, includeArrivalReports);
+        const cached = cache.get(cacheKey);
+        const cacheAge = cached ? Date.now() - cached.timestamp : null;
+
+        if (cached && cacheAge < CACHE_TTL) {
+          // Cache hit - les données sont déjà filtrées et avec/ sans rapports selon la requête
+          console.log(`[API] Cache hit (âge: ${Math.round(cacheAge / 1000)}s, clé: ${cacheKey})`);
+          const filtered = applyFilters(cached.data, filters);
+          res.setHeader('Content-Type', 'application/json');
+          return res.status(200).json(filtered);
+        } else if (cached) {
+          console.log(
+            `[API] Cache expiré (âge: ${Math.round(cacheAge / 1000)}s, TTL: ${CACHE_TTL / 1000}s)`
+          );
+        } else {
+          console.log(`[API] Cache miss pour la clé: ${cacheKey}`);
         }
 
         // OPTIMISATION : Timeout global de 56 secondes pour laisser une marge de 4s
@@ -331,6 +278,22 @@ export default async function handler(req, res) {
       }
     } else if (source === 'pmu-json') {
       console.log(`[API] Début scraping PMU JSON...`);
+      
+      // Pour PMU JSON, pas de rapports d'arrivée pour l'instant
+      const includeArrivalReports = false;
+      
+      // Clé de cache pour PMU JSON
+      const cacheKey = getCacheKey(source, years, months, filters, includeArrivalReports);
+      const cached = cache.get(cacheKey);
+      const cacheAge = cached ? Date.now() - cached.timestamp : null;
+
+      if (cached && cacheAge < CACHE_TTL) {
+        console.log(`[API] Cache hit (âge: ${Math.round(cacheAge / 1000)}s, clé: ${cacheKey})`);
+        const filtered = applyFilters(cached.data, filters);
+        res.setHeader('Content-Type', 'application/json');
+        return res.status(200).json(filtered);
+      }
+      
       if (dateFrom && dateTo) {
         reunions = await scrapePmuJsonArchives([], [], dateFrom, dateTo);
       } else if (years.length > 0 && months.length > 0) {
@@ -347,16 +310,24 @@ export default async function handler(req, res) {
       console.log(
         `[API] Scraping PMU JSON terminé: ${reunions.length} réunions trouvées`
       );
+      
+      // Mettre en cache pour PMU JSON
+      cache.set(cacheKey, {
+        data: reunions,
+        timestamp: Date.now(),
+      });
     } else {
       console.log(`[API] Source invalide: ${source}`);
       return res.status(400).json({ error: 'Invalid source' });
     }
 
-    // Mettre en cache
-    cache.set(cacheKey, {
-      data: reunions,
-      timestamp: Date.now(),
-    });
+    // Mettre en cache pour turf-fr (cacheKey déjà défini dans le bloc turf-fr)
+    if (source === 'turf-fr') {
+      cache.set(cacheKey, {
+        data: reunions,
+        timestamp: Date.now(),
+      });
+    }
 
     // Appliquer les filtres
     const filtered = applyFilters(reunions, filters);

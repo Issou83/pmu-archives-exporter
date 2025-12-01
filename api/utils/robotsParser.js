@@ -79,6 +79,8 @@ export function parseRobotsTxt(robotsTxtContent) {
 
 /**
  * Vérifie si une URL est autorisée selon les règles robots.txt
+ * Respecte la spécification robots.txt : la règle la plus spécifique (la plus longue) l'emporte
+ * 
  * @param {Object} rules - Règles parsées depuis robots.txt
  * @param {string} url - URL à vérifier
  * @param {string} userAgent - User-Agent à utiliser (défaut: '*')
@@ -102,25 +104,50 @@ export function isUrlAllowed(rules, url, userAgent = '*') {
     path = url;
   }
 
-  // Vérifier d'abord les règles Allow (plus spécifiques)
+  // Trouver la règle la plus spécifique (la plus longue) qui correspond
+  // Selon la spécification robots.txt, la règle la plus longue l'emporte
+  let mostSpecificRule = null;
+  let mostSpecificLength = -1;
+  let mostSpecificType = null; // 'allow' ou 'disallow'
+
+  // Chercher dans les règles Allow
   for (const allowPath of agentRules.allow || []) {
     if (allowPath === '/' || path.startsWith(allowPath)) {
-      return true;
+      const pathLength = allowPath.length;
+      if (pathLength > mostSpecificLength) {
+        mostSpecificLength = pathLength;
+        mostSpecificRule = allowPath;
+        mostSpecificType = 'allow';
+      }
     }
   }
 
-  // Vérifier les règles Disallow
+  // Chercher dans les règles Disallow
   for (const disallowPath of agentRules.disallow || []) {
     if (disallowPath === '/') {
-      // Disallow: / interdit tout
-      return false;
-    }
-    if (path.startsWith(disallowPath)) {
-      return false;
+      // Disallow: / interdit tout (très spécifique)
+      const pathLength = 1;
+      if (pathLength > mostSpecificLength) {
+        mostSpecificLength = pathLength;
+        mostSpecificRule = disallowPath;
+        mostSpecificType = 'disallow';
+      }
+    } else if (path.startsWith(disallowPath)) {
+      const pathLength = disallowPath.length;
+      if (pathLength > mostSpecificLength) {
+        mostSpecificLength = pathLength;
+        mostSpecificRule = disallowPath;
+        mostSpecificType = 'disallow';
+      }
     }
   }
 
-  // Par défaut, autoriser
+  // Si on a trouvé une règle spécifique, appliquer son type
+  if (mostSpecificRule !== null) {
+    return mostSpecificType === 'allow';
+  }
+
+  // Par défaut, autoriser (si aucune règle ne correspond)
   return true;
 }
 

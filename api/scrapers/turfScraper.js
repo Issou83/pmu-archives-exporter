@@ -4,22 +4,8 @@ import {
   isUrlAllowed,
   getCrawlDelay,
 } from '../utils/robotsParser.js';
-
-// Mois en français (dupliqué depuis constants.js pour éviter les imports cross-module)
-const MONTHS = [
-  { value: 'janvier', label: 'Janvier', slug: 'janvier' },
-  { value: 'fevrier', label: 'Février', slug: 'fevrier' },
-  { value: 'mars', label: 'Mars', slug: 'mars' },
-  { value: 'avril', label: 'Avril', slug: 'avril' },
-  { value: 'mai', label: 'Mai', slug: 'mai' },
-  { value: 'juin', label: 'Juin', slug: 'juin' },
-  { value: 'juillet', label: 'Juillet', slug: 'juillet' },
-  { value: 'aout', label: 'Août', slug: 'aout' },
-  { value: 'septembre', label: 'Septembre', slug: 'septembre' },
-  { value: 'octobre', label: 'Octobre', slug: 'octobre' },
-  { value: 'novembre', label: 'Novembre', slug: 'novembre' },
-  { value: 'decembre', label: 'Décembre', slug: 'decembre' },
-];
+import { MONTHS, MONTH_NAMES, DEBUG } from '../utils/constants.js';
+import { applyFilters } from '../utils/filters.js';
 
 /**
  * Sleep function pour éviter le scraping agressif
@@ -61,20 +47,8 @@ function generateId(dateISO, hippodrome, reunionNumber) {
 function parseDate(dateText) {
   if (!dateText) return null;
 
-  const monthNames = {
-    janvier: 1,
-    février: 2,
-    mars: 3,
-    avril: 4,
-    mai: 5,
-    juin: 6,
-    juillet: 7,
-    août: 8,
-    septembre: 9,
-    octobre: 10,
-    novembre: 11,
-    décembre: 12,
-  };
+  // Utiliser MONTH_NAMES depuis constants.js
+  const monthNames = MONTH_NAMES;
 
   // Pattern 1: "lundi 15 janvier 2024" ou "15 janvier 2024"
   const fullDateMatch = dateText.match(
@@ -499,9 +473,11 @@ async function scrapeDateFromReunionPage(reunionUrl, robotsRules = null) {
         if (year >= 2020 && year <= 2025) {
           return parsedDate;
         } else {
-          console.log(
-            `[Scraper] Date rejetée (hors plage 2020-2025): ${dateText} (année: ${year})`
-          );
+          if (DEBUG) {
+            console.log(
+              `[Scraper] Date rejetée (hors plage 2020-2025): ${dateText} (année: ${year})`
+            );
+          }
         }
       }
     }
@@ -520,13 +496,13 @@ async function scrapeDateFromReunionPage(reunionUrl, robotsRules = null) {
  */
 async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
   const url = `https://www.turf-fr.com/archives/courses-pmu/${year}/${monthSlug}`;
-  console.log(`[Scraper] Scraping: ${url}`);
+  if (DEBUG) console.log(`[Scraper] Scraping: ${url}`);
 
   // Vérifier robots.txt si disponible
   if (robotsRules) {
     const allowed = isUrlAllowed(robotsRules, url, '*');
     if (!allowed) {
-      console.warn(`[Scraper] URL interdite par robots.txt: ${url}`);
+      if (DEBUG) console.warn(`[Scraper] URL interdite par robots.txt: ${url}`);
       return [];
     }
   }
@@ -539,12 +515,12 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
   }
 
   // CORRECTION : Déclarer datesScrapedFromPages et MAX_DATES_FROM_PAGES au début de la fonction
-  // OPTIMISATION : Augmenté pour améliorer la détection (30 * 2s = 60s max, mais limité par early exit)
-  const MAX_DATES_FROM_PAGES = 30; // Limite augmentée pour améliorer la détection des dates
+  // OPTIMISATION ULTIME : Réduire drastiquement pour éviter timeout (5 * 2s = 10s max)
+  const MAX_DATES_FROM_PAGES = 5; // Limite réduite pour éviter timeout
   let datesScrapedFromPages = 0; // Compteur pour limiter le scraping depuis pages individuelles
 
-  // OPTIMISATION : Augmenté pour améliorer la détection des hippodromes (50 * 2s = 100s max, mais limité par early exit)
-  const MAX_HIPPODROMES_FROM_PAGES = 50; // Limite augmentée pour améliorer la détection des hippodromes
+  // OPTIMISATION ULTIME : Réduire drastiquement pour éviter timeout (5 * 2s = 10s max)
+  const MAX_HIPPODROMES_FROM_PAGES = 5; // Limite réduite pour éviter timeout
   let hippodromesScrapedFromPages = 0; // Compteur pour limiter le scraping depuis pages individuelles
 
   try {
@@ -634,7 +610,7 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
     const $ = cheerio.load(html);
     const reunions = [];
 
-    console.log(`[Scraper] HTML reçu, longueur: ${html.length} caractères`);
+    if (DEBUG) console.log(`[Scraper] HTML reçu, longueur: ${html.length} caractères`);
 
     // Méthode 1 : Chercher les liens vers les réunions
     // Patterns détectés : /courses-pmu/arrivees-rapports/r1-... ou /partants-programmes/r1-...
@@ -653,38 +629,40 @@ async function scrapeMonthPage(year, monthSlug, robotsRules = null) {
     );
 
     // DEBUG : Vérifier si les conteneurs existent
-    console.log(
-      `[Scraper] DEBUG: Conteneurs trouvés: ${$reunionContainers.length}`
-    );
+    if (DEBUG) {
+      console.log(
+        `[Scraper] DEBUG: Conteneurs trouvés: ${$reunionContainers.length}`
+      );
 
-    // DEBUG : Vérifier si les liens existent
-    const allLinksForDebug = $('a').toArray();
-    console.log(
-      `[Scraper] DEBUG: Total liens sur la page: ${allLinksForDebug.length}`
-    );
+      // DEBUG : Vérifier si les liens existent
+      const allLinksForDebug = $('a').toArray();
+      console.log(
+        `[Scraper] DEBUG: Total liens sur la page: ${allLinksForDebug.length}`
+      );
 
-    // DEBUG : Vérifier les patterns
-    let patternMatches = 0;
-    for (const elem of allLinksForDebug) {
-      const $link = $(elem);
-      const href = $link.attr('href');
-      if (href) {
-        const isReunionUrl = reunionUrlPatterns.some((pattern) =>
-          pattern.test(href)
-        );
-        if (isReunionUrl) {
-          patternMatches++;
-          if (patternMatches <= 3) {
-            console.log(
-              `[Scraper] DEBUG: Lien matché ${patternMatches}: ${href}`
-            );
+      // DEBUG : Vérifier les patterns
+      let patternMatches = 0;
+      for (const elem of allLinksForDebug) {
+        const $link = $(elem);
+        const href = $link.attr('href');
+        if (href) {
+          const isReunionUrl = reunionUrlPatterns.some((pattern) =>
+            pattern.test(href)
+          );
+          if (isReunionUrl) {
+            patternMatches++;
+            if (patternMatches <= 3) {
+              console.log(
+                `[Scraper] DEBUG: Lien matché ${patternMatches}: ${href}`
+              );
+            }
           }
         }
       }
+      console.log(
+        `[Scraper] DEBUG: Liens matchant les patterns: ${patternMatches}`
+      );
     }
-    console.log(
-      `[Scraper] DEBUG: Liens matchant les patterns: ${patternMatches}`
-    );
 
     let foundLinks = 0;
     const processedUrls = new Set(); // Pour éviter les doublons
@@ -2314,11 +2292,12 @@ export async function scrapeTurfFrArchives(
 
   // OPTIMISATION CRITIQUE : Suivre le temps dès le début pour éviter timeout
   // Le scraping initial peut déjà prendre trop de temps
-  // OPTIMISATION ULTIME : Réduire à 25s pour laisser 31s pour les rapports (marge maximale)
+  // OPTIMISATION ULTIME : Réduire encore plus pour garantir 0 timeout
   // Si 2 mois ou plus, réduire encore plus car le scraping initial prend plus de temps
   const SCRAPING_START_TIME = Date.now();
   const totalMonths = years.length * months.length;
-  const MAX_INITIAL_SCRAPING_TIME = totalMonths >= 2 ? 20000 : 30000; // 20s pour 2+ mois, 30s pour 1 mois
+  // OPTIMISATION ULTIME : 15s pour 2+ mois (laisser 41s pour rapports), 25s pour 1 mois (laisser 31s)
+  const MAX_INITIAL_SCRAPING_TIME = totalMonths >= 2 ? 15000 : 25000;
 
   const allReunions = [];
 
@@ -2328,27 +2307,31 @@ export async function scrapeTurfFrArchives(
       const elapsedTime = Date.now() - SCRAPING_START_TIME;
       const remainingTime = MAX_INITIAL_SCRAPING_TIME - elapsedTime;
       
-      // Early exit plus agressif : arrêter à 10s restantes pour 2+ mois, 8s pour 1 mois
-      const earlyExitThreshold = totalMonths >= 2 ? 10000 : 8000;
+      // Early exit plus agressif : arrêter à 5s restantes pour 2+ mois, 8s pour 1 mois
+      const earlyExitThreshold = totalMonths >= 2 ? 5000 : 8000;
       if (remainingTime < earlyExitThreshold) {
-        console.log(
-          `[Scraper] ⚠️ Timeout imminent pendant scraping initial (${Math.round(remainingTime / 1000)}s restantes), arrêt`
-        );
+        if (DEBUG) {
+          console.log(
+            `[Scraper] ⚠️ Timeout imminent pendant scraping initial (${Math.round(remainingTime / 1000)}s restantes), arrêt`
+          );
+        }
         break;
       }
 
       const monthData = MONTHS.find((m) => m.value === month);
       if (!monthData) {
-        console.warn(`[Scraper] Mois non trouvé: ${month}`);
+        if (DEBUG) console.warn(`[Scraper] Mois non trouvé: ${month}`);
         continue;
       }
 
       const monthSlug = monthData.slug;
-      console.log(`[Scraper] Scraping ${year}/${monthSlug}...`);
+      if (DEBUG) console.log(`[Scraper] Scraping ${year}/${monthSlug}...`);
       const reunions = await scrapeMonthPage(year, monthSlug, robotsRules);
-      console.log(
-        `[Scraper] ${reunions.length} réunions trouvées pour ${year}/${monthSlug}`
-      );
+      if (DEBUG) {
+        console.log(
+          `[Scraper] ${reunions.length} réunions trouvées pour ${year}/${monthSlug}`
+        );
+      }
       allReunions.push(...reunions);
 
       // ✅ RESPECT DE ROBOTS.TXT - Utiliser le crawl-delay recommandé
@@ -2357,15 +2340,17 @@ export async function scrapeTurfFrArchives(
     
     // Si on a arrêté à cause du timeout, sortir de la boucle des années aussi
     const elapsedTime = Date.now() - SCRAPING_START_TIME;
-    const earlyExitThreshold = totalMonths >= 2 ? 10000 : 8000;
+    const earlyExitThreshold = totalMonths >= 2 ? 5000 : 8000;
     if (elapsedTime >= MAX_INITIAL_SCRAPING_TIME - earlyExitThreshold) {
       break;
     }
   }
 
-  console.log(
-    `[Scraper] Total avant déduplication: ${allReunions.length} réunions`
-  );
+  if (DEBUG) {
+    console.log(
+      `[Scraper] Total avant déduplication: ${allReunions.length} réunions`
+    );
+  }
 
   // Dédupliquer par ID
   const uniqueReunions = [];
@@ -2378,76 +2363,40 @@ export async function scrapeTurfFrArchives(
     }
   }
 
-  console.log(
-    `[Scraper] Total après déduplication: ${uniqueReunions.length} réunions`
-  );
+  if (DEBUG) {
+    console.log(
+      `[Scraper] Total après déduplication: ${uniqueReunions.length} réunions`
+    );
+  }
+  
+  // Gestion des résultats partiels : si on a arrêté tôt, ajouter un flag
+  const wasEarlyExit = Date.now() - SCRAPING_START_TIME >= MAX_INITIAL_SCRAPING_TIME - (totalMonths >= 2 ? 5000 : 8000);
+  if (wasEarlyExit && DEBUG) {
+    console.warn(
+      `[Scraper] ⚠️ Scraping initial arrêté prématurément, résultats partiels possibles`
+    );
+  }
 
   // OPTIMISATION CRITIQUE : Appliquer les filtres AVANT le scraping des rapports
   // pour éviter de scraper des réunions qui seront filtrées après
   let reunionsToProcess = uniqueReunions;
   if (filters) {
-    // Appliquer les filtres qui peuvent réduire le nombre de réunions à scraper
-    // On filtre AVANT le scraping des rapports pour économiser du temps
-    if (filters.reunionNumbers?.length) {
-      reunionsToProcess = reunionsToProcess.filter((r) => {
-        const reunionNum =
-          typeof r.reunionNumber === 'string'
-            ? parseInt(r.reunionNumber)
-            : r.reunionNumber;
-        return filters.reunionNumbers.some((num) => {
-          const filterNum = typeof num === 'string' ? parseInt(num) : num;
-          return reunionNum === filterNum;
-        });
-      });
+    // Utiliser applyFilters depuis utils/filters.js pour éviter la duplication
+    reunionsToProcess = applyFilters(uniqueReunions, filters);
+    if (DEBUG) {
       console.log(
-        `[Scraper] Filtre reunionNumbers appliqué: ${uniqueReunions.length} → ${reunionsToProcess.length} réunions`
-      );
-    }
-
-    if (filters.countries?.length) {
-      reunionsToProcess = reunionsToProcess.filter((r) =>
-        filters.countries.includes(r.countryCode)
-      );
-      console.log(
-        `[Scraper] Filtre countries appliqué: ${reunionsToProcess.length} réunions restantes`
-      );
-    }
-
-    if (filters.dateFrom) {
-      reunionsToProcess = reunionsToProcess.filter(
-        (r) => r.dateISO >= filters.dateFrom
-      );
-      console.log(
-        `[Scraper] Filtre dateFrom appliqué: ${reunionsToProcess.length} réunions restantes`
-      );
-    }
-
-    if (filters.dateTo) {
-      reunionsToProcess = reunionsToProcess.filter(
-        (r) => r.dateISO <= filters.dateTo
-      );
-      console.log(
-        `[Scraper] Filtre dateTo appliqué: ${reunionsToProcess.length} réunions restantes`
-      );
-    }
-
-    if (filters.hippodromes?.length) {
-      reunionsToProcess = reunionsToProcess.filter((r) =>
-        filters.hippodromes.some((h) =>
-          r.hippodrome?.toLowerCase().includes(h.toLowerCase())
-        )
-      );
-      console.log(
-        `[Scraper] Filtre hippodromes appliqué: ${reunionsToProcess.length} réunions restantes`
+        `[Scraper] Filtres appliqués: ${uniqueReunions.length} → ${reunionsToProcess.length} réunions`
       );
     }
   }
 
   // Scraper les rapports d'arrivée seulement si demandé
   if (includeArrivalReports) {
-    console.log(
-      `[Scraper] Début scraping des rapports d'arrivée pour ${reunionsToProcess.length} réunions (filtrées)`
-    );
+    if (DEBUG) {
+      console.log(
+        `[Scraper] Début scraping des rapports d'arrivée pour ${reunionsToProcess.length} réunions (filtrées)`
+      );
+    }
 
     // OPTIMISATION : Batch size adaptatif selon le crawl-delay, le nombre de réunions ET l'année
     // AUGMENTATION AGRESSIVE : Batch size très élevé pour maximiser le parallélisme
@@ -2462,9 +2411,11 @@ export async function scrapeTurfFrArchives(
       // Priorité : éviter les timeouts plutôt que maximiser les rapports
       // OPTIMISATION ULTIME : Réduire encore plus (6 au lieu de 8) pour garantir 0 timeout
       adaptiveBatchSize = Math.max(6, Math.floor(adaptiveBatchSize * 0.25));
-      console.log(
-        `[Scraper] ⚠️ Année 2022 détectée, batch size réduit à ${adaptiveBatchSize} pour éviter timeouts`
-      );
+      if (DEBUG) {
+        console.log(
+          `[Scraper] ⚠️ Année 2022 détectée, batch size réduit à ${adaptiveBatchSize} pour éviter timeouts`
+        );
+      }
     }
 
     // OPTIMISATION : Si beaucoup de réunions, réduire légèrement mais garder élevé
@@ -2475,9 +2426,11 @@ export async function scrapeTurfFrArchives(
     }
 
     const BATCH_SIZE = adaptiveBatchSize;
-    console.log(
-      `[Scraper] Batch size: ${BATCH_SIZE} (crawl-delay: ${crawlDelay}ms, ${uniqueReunions.length} réunions)`
-    );
+    if (DEBUG) {
+      console.log(
+        `[Scraper] Batch size: ${BATCH_SIZE} (crawl-delay: ${crawlDelay}ms, ${uniqueReunions.length} réunions)`
+      );
+    }
 
     // OPTIMISATION : Prioriser les réunions les plus récentes (tri par date décroissante)
     // Les réunions récentes sont souvent plus importantes et peuvent être scrapées en premier
@@ -2503,15 +2456,19 @@ export async function scrapeTurfFrArchives(
     // OPTIMISATION ULTIME : Réduire à 250 pour garantir 0 timeout
     let reunionsToScrapeFinal = reunionsToScrape;
     if (has2022 && reunionsToScrape.length > 250) {
-      console.log(
-        `[Scraper] ⚠️ 2022: Limitation à 250 réunions (sur ${reunionsToScrape.length}) pour éviter timeout`
-      );
+      if (DEBUG) {
+        console.log(
+          `[Scraper] ⚠️ 2022: Limitation à 250 réunions (sur ${reunionsToScrape.length}) pour éviter timeout`
+        );
+      }
       reunionsToScrapeFinal = reunionsToScrape.slice(0, 250);
     }
 
-    console.log(
-      `[Scraper] Scraping des rapports pour ${reunionsToScrapeFinal.length} réunions (triées par date décroissante)`
-    );
+    if (DEBUG) {
+      console.log(
+        `[Scraper] Scraping des rapports pour ${reunionsToScrapeFinal.length} réunions (triées par date décroissante)`
+      );
+    }
 
     for (let i = 0; i < reunionsToScrapeFinal.length; i += BATCH_SIZE) {
       // EARLY EXIT : Vérifier si on approche du timeout
@@ -2527,9 +2484,12 @@ export async function scrapeTurfFrArchives(
       const earlyExitThreshold = has2022 ? 10000 : 5000; // 10s pour 2022 (marge maximale), 5s pour les autres
       if (remainingTime < earlyExitThreshold || totalRemainingTime < 10000) {
         // Moins de X secondes restantes, arrêter le scraping
-        console.log(
-          `[Scraper] ⚠️ Timeout imminent (${Math.round(remainingTime / 1000)}s restantes pour rapports, ${Math.round(totalRemainingTime / 1000)}s total), arrêt du scraping des rapports`
-        );
+        if (DEBUG) {
+          console.log(
+            `[Scraper] ⚠️ Timeout imminent (${Math.round(remainingTime / 1000)}s restantes pour rapports, ${Math.round(totalRemainingTime / 1000)}s total), arrêt du scraping des rapports`
+          );
+        }
+        // Toujours logger le résumé même si DEBUG est false
         console.log(
           `[Scraper] Rapports scrapés: ${totalWithReports}/${totalScraped} (${totalScraped > 0 ? Math.round((totalWithReports / totalScraped) * 100) : 0}%)`
         );
@@ -2567,7 +2527,7 @@ export async function scrapeTurfFrArchives(
         (r) => r.status === 'rejected' || !r.value?.reunion?.arrivalReport
       ).length;
 
-      if (failureCount > 0 || (i + BATCH_SIZE) % (BATCH_SIZE * 3) === 0) {
+      if (DEBUG && (failureCount > 0 || (i + BATCH_SIZE) % (BATCH_SIZE * 3) === 0)) {
         const progress = Math.min(i + BATCH_SIZE, reunionsToScrapeFinal.length);
         const percentage = Math.round(
           (progress / reunionsToScrapeFinal.length) * 100
@@ -2611,11 +2571,12 @@ export async function scrapeTurfFrArchives(
     }
 
     const finalElapsedTime = Date.now() - ARRIVAL_SCRAPING_START_TIME;
+    // Toujours logger le résumé final même si DEBUG est false
     console.log(
       `[Scraper] Scraping des rapports d'arrivée terminé: ${totalWithReports}/${totalScraped} rapports trouvés (${totalScraped > 0 ? Math.round((totalWithReports / totalScraped) * 100) : 0}%) en ${Math.round(finalElapsedTime / 1000)}s`
     );
   } else {
-    console.log(`[Scraper] Scraping des rapports d'arrivée désactivé`);
+    if (DEBUG) console.log(`[Scraper] Scraping des rapports d'arrivée désactivé`);
   }
 
   // Retourner uniqueReunions (non filtrées) pour que les filtres finaux soient appliqués dans archives.js

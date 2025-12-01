@@ -95,7 +95,9 @@ async function scrapeHippodromesFromTurfFr() {
     }
 
     const html = await response.text();
-    const cheerio = require('cheerio');
+    // Utiliser ESM import comme dans le reste du projet
+    const cheerioModule = await import('cheerio');
+    const cheerio = cheerioModule.default || cheerioModule;
     const $ = cheerio.load(html);
     
     const hippodromes = new Set();

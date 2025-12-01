@@ -3,6 +3,11 @@
  * Endpoint: https://offline.turfinfo.api.pmu.fr/rest/client/7/programme/{ddMMyyyy}
  */
 
+import { MONTH_NAMES_ARRAY, DEBUG } from '../utils/constants.js';
+
+// Limite maximale de jours à scraper en une requête (évite les timeouts)
+const MAX_DAYS_TO_SCRAPE = 31;
+
 /**
  * Formate une date au format ddMMyyyy
  */
@@ -144,13 +149,22 @@ export async function scrapePmuJsonArchives(years, months, dateFrom, dateTo) {
 
   // Si dateFrom et dateTo sont fournis, utiliser cette plage
   if (dateFrom && dateTo) {
-    datesToScrape.push(...generateDateRange(dateFrom, dateTo));
+    const dateRange = generateDateRange(dateFrom, dateTo);
+    
+    // Limiter le nombre de jours pour éviter les timeouts
+    if (dateRange.length > MAX_DAYS_TO_SCRAPE) {
+      if (DEBUG) {
+        console.warn(
+          `[PMU JSON] Plage trop large (${dateRange.length} jours), limitation à ${MAX_DAYS_TO_SCRAPE} jours`
+        );
+      }
+      datesToScrape.push(...dateRange.slice(0, MAX_DAYS_TO_SCRAPE));
+    } else {
+      datesToScrape.push(...dateRange);
+    }
   } else {
     // Sinon, générer les dates depuis years et months
-    const monthNames = [
-      'janvier', 'fevrier', 'mars', 'avril', 'mai', 'juin',
-      'juillet', 'aout', 'septembre', 'octobre', 'novembre', 'decembre',
-    ];
+    const monthNames = MONTH_NAMES_ARRAY;
 
     for (const year of years) {
       for (const month of months) {
@@ -163,6 +177,16 @@ export async function scrapePmuJsonArchives(years, months, dateFrom, dateTo) {
           datesToScrape.push(new Date(year, monthIndex, day));
         }
       }
+    }
+    
+    // Limiter le nombre total de dates pour éviter les timeouts
+    if (datesToScrape.length > MAX_DAYS_TO_SCRAPE) {
+      if (DEBUG) {
+        console.warn(
+          `[PMU JSON] Trop de dates à scraper (${datesToScrape.length}), limitation à ${MAX_DAYS_TO_SCRAPE} jours`
+        );
+      }
+      datesToScrape.splice(MAX_DAYS_TO_SCRAPE);
     }
   }
 
