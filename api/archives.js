@@ -39,12 +39,30 @@ function checkRateLimit(ip) {
 }
 
 /**
- * Génère une clé de cache
+ * Génère une clé de cache résiliente
+ * Inclut les filtres et l'activation des rapports pour éviter les problèmes de cache
  */
-function getCacheKey(source, years, months) {
+function getCacheKey(source, years, months, filters = {}, includeArrivalReports = false) {
   const yearsStr = Array.isArray(years) ? years.sort().join(',') : '';
   const monthsStr = Array.isArray(months) ? months.sort().join(',') : '';
-  return `${source}_${yearsStr}_${monthsStr}`;
+  
+  // Inclure les filtres dans la clé pour éviter les conflits
+  const filtersStr = JSON.stringify({
+    dateFrom: filters.dateFrom || null,
+    dateTo: filters.dateTo || null,
+    hippodromes: filters.hippodromes?.sort() || [],
+    reunionNumbers: filters.reunionNumbers?.sort() || [],
+    countries: filters.countries?.sort() || [],
+    textQuery: filters.textQuery || null,
+  });
+  
+  // Inclure l'activation des rapports dans la clé
+  const reportsFlag = includeArrivalReports ? 'with_reports' : 'no_reports';
+  
+  // Hash simple pour éviter des clés trop longues
+  const filtersHash = Buffer.from(filtersStr).toString('base64').substring(0, 16);
+  
+  return `${source}_${yearsStr}_${monthsStr}_${reportsFlag}_${filtersHash}`;
 }
 
 /**
